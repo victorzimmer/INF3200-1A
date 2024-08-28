@@ -30,6 +30,8 @@ fn rocket() -> Rocket<Build> {
         hostname: hostname,
     };
 
+    println!("Server started at {}:{}", server_config.hostname, server_config.port);
+    
     rocket::build()
         .manage(server_config)
         .mount("/", routes![hello])
