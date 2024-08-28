@@ -42,7 +42,7 @@ json_output=()
 # done
 
 
-requested_nodes = $1 
+requested_nodes=$1 
 
 while (( requested_nodes > 0 )); do 
     if (( requested_nodes > node_count )); then 
