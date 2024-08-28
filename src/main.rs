@@ -14,8 +14,7 @@ struct ServerConfig {
 #[get("/helloworld")]
 fn hello(config: &State<ServerConfig>) -> String {
     format!(
-        "Hello, world! The server is running on address: {}, hostname: {}, and port: {}", 
-        config.address,
+        "{}:{}", 
         config.hostname,
         config.port, 
     )
