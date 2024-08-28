@@ -26,7 +26,7 @@ availe_nodes=$(/share/ifi/available-nodes.sh)  # Note the syntax correction here
 # fi
 
 # Loop through the number of servers to start and assign nodes to servers
-node_list=$(echo "$availe_nodes" | cut -d' ' -f1-"$1")      # converterer til et array:  cut -d' ' -f1-"$1"
+node_list=$(echo "$availe_nodes" | shuf -n "$1")      # converterer til et array:  cut -d' ' -f1-"$1"
 for node in $node_list; do  
     echo "Starting server on node: $node"  # DEBUG PRINT 
     port=$(shuf -i 49152-65535 -n 1)       # Get a random port number between 49152 and 65535 <- from the assignment 
