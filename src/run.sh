@@ -15,12 +15,12 @@ if ! [[ "$1" =~ $regex_positiv_integer ]]; then
 fi
 
 # Get available nodes from cluster
-availe_nodes=$(/share/ifi/available-nodes.sh)  # Note the syntax correction here
+availe_nodes=($(/share/ifi/available-nodes.sh))  # Note the syntax correction here
 
 # echo "Available nodes: $availe_nodes"  # DEBUG PRINT
 
-node_count=$(echo "$availe_nodes" | wc -w)
-#echo "Number of available nodes: $node_count"  # DEBUG PRINT
+node_count=${#available_nodes[@]}
+echo "Number of available nodes: $node_count"  # DEBUG PRINT
 
 # Loop through the number of servers to start and assign nodes to servers
 node_list=()
