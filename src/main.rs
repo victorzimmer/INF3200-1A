@@ -5,7 +5,7 @@ use rocket::{Build, Rocket, State};
 
 struct ServerConfig {
     address: String, 
-    port: u16,
+    port: 50090,
 }
 
 #[get("/helloworld")]
