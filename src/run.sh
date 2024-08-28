@@ -17,6 +17,8 @@ fi
 # Get available nodes from cluster
 availe_nodes=$(/share/ifi/available-nodes.sh)  # Note the syntax correction here
 
+echo "Available nodes: $availe_nodes"  # DEBUG PRINT
+
 # node_count=$(echo "$availe_nodes" | wc -w)
 # echo "Available nodes, count: $node_count"  # DEBUG PRINT
 # # Check if there are enough nodes
@@ -26,7 +28,7 @@ availe_nodes=$(/share/ifi/available-nodes.sh)  # Note the syntax correction here
 # fi
 
 # Loop through the number of servers to start and assign nodes to servers
-node_list=$(echo "$availe_nodes" | shuf -n "$1")      # converterer til et array:  cut -d' ' -f1-"$1"
+node_list=$(echo "$availe_nodes" | shuf -n "$1")     
 echo "Node list: $node_list"  # DEBUG PRINT
 
 json_output=()
