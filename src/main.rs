@@ -3,6 +3,7 @@ extern crate rocket;
 
 use rocket::{Build, Rocket, State};
 use std::env;
+use gethostname::gethostname;
 
 struct ServerConfig {
     address: String, 
@@ -22,7 +23,7 @@ fn hello(config: &State<ServerConfig>) -> String {
 
 #[launch]
 fn rocket() -> Rocket<Build> {
-    let hostname = env::var("HOST").expect("hostname not set");
+    let hostname = gethostname().to_string_lossy().into_owned();
     let config = rocket::Config::figment().extract::<rocket::Config>().unwrap();
     let server_config = ServerConfig { 
         address: config.address.to_string(), 
