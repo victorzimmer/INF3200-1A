@@ -18,6 +18,7 @@ fi
 availe_nodes=$(/share/ifi/available-nodes.sh)  # Note the syntax correction here
 
 node_count=$(echo "$availe_nodes" | wc -w)
+echo "Available nodes, count: $node_count"  # DEBUG PRINT
 # Check if there are enough nodes
 if [ "$1" -gt "${#availe_nodes[@]}" ]; then
     echo "Not enough nodes available, please provide a smaller number of servers"
