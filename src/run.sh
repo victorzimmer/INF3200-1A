@@ -20,18 +20,17 @@ availe_nodes=$(/share/ifi/available-nodes.sh)  # Note the syntax correction here
 echo "Available nodes: $availe_nodes"  # DEBUG PRINT
 
 node_count=$(echo "$availe_nodes" | wc -w)
-echo "Available nodes, count: $node_count"  # DEBUG PRINT
-# Check if there are enough nodes
-if [ "$1" -gt "${#availe_nodes[@]}" ]; then
-    echo "Not enough nodes available, please provide a smaller number of servers"
-    exit 1
-fi
+echo "Number of available nodes: $node_count"  # DEBUG PRINT
 
 # Loop through the number of servers to start and assign nodes to servers
 node_list=$(echo "$availe_nodes" | shuf -n "$1")     
 echo "Node list: $node_list"  # DEBUG PRINT
 
 json_output=()
+
+
+# TODO: håndtere at det er etterspurt flere servere enn det er noder
+# TODO: sette inn vår main og container
 
 for node in $node_list; do  
     echo "Starting server on node: $node"  # DEBUG PRINT 
