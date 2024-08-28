@@ -1,38 +1,27 @@
 #[macro_use]
 extern crate rocket;
 
-use rocket::{Build, Rocket, State};
+use rocket::State;
 use std::env;
-use gethostname::gethostname;
 
-struct ServerConfig {
-    address: String, 
+struct A1Config {
     hostname: String,
-    port: u16,
+    port: String,
 }
 
 #[get("/helloworld")]
-fn hello(config: &State<ServerConfig>) -> String {
-    format!(
-        "{}:{}", 
-        config.hostname,
-        config.port, 
-    )
+fn helloworld(a1_config: &State<A1Config>) -> String {
+    format!("{}:{}", a1_config.hostname, a1_config.port)
 }
 
 #[launch]
-fn rocket() -> Rocket<Build> {
-    let hostname = gethostname().to_string_lossy().into_owned();
-    let config = rocket::Config::figment().extract::<rocket::Config>().unwrap();
-    let server_config = ServerConfig { 
-        address: config.address.to_string(), 
-        port: config.port, 
-        hostname: hostname,
+fn rocket() -> _ {
+    let a1_config = A1Config {
+        hostname: env::var("A1_HOSTNAME").expect("Hostname not provided!"),
+        port: env::var("A1_PORT").expect("Port not provided!"),
     };
 
-    println!("Server started at {}:{}", server_config.hostname, server_config.port);
-    
     rocket::build()
-        .manage(server_config)
-        .mount("/", routes![hello])
+        .manage(a1_config)
+        .mount("/", routes![helloworld])
 }
