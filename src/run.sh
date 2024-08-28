@@ -35,7 +35,7 @@ json_output=()
 # TODO: håndtere at det er etterspurt flere servere enn det er noder
 # TODO: sette inn vår main og container
 
-for node in $node_list; do  
+for node in "${node_list[@]}"; do  
     # echo "Starting server on node: $node"  # DEBUG PRINT 
     port=$(shuf -i 49152-65535 -n 1)       # Get a random port number between 49152 and 65535 <- from the assignment 
     # Command to start the server with ssh 
