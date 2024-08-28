@@ -32,7 +32,6 @@ for node in $node_list; do
     port=$(shuf -i 49152-65535 -n 1)       # Get a random port number between 49152 and 65535 <- from the assignment 
     # Command to start the server with ssh 
     ## sjekke at podman er installert, last ned conteiner 
-    ssh "$node" 
     echo $HOST
     exit     
 done
