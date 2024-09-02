@@ -14,11 +14,6 @@ if ! [[ "$1" =~ $regex_positive_integer ]]; then
     exit 1
 fi
 
-# Number of requested nodes is initialized as requested by user
-requested_node_count=$1
-
-echo "Starting $requested_node_count instances..."
-
 
 # Get available nodes from cluster
 echo "Checking available nodes..."
@@ -31,40 +26,8 @@ available_node_count=$(echo "$available_nodes" | wc -w)
 echo "Found $available_node_count available nodes!"
 
 # Loop through the number of servers to start and assign nodes to servers
-node_list=$(echo "$available_nodes" | shuf -n "$1")
-# echo "Node list: $node_list"  # DEBUG PRINT
-
-
-if [ $requested_node_count -gt $available_node_count ]
-then
-    echo "Warning: Requested number of instances is higher than available nodes, some instances will be deployed to the same node."
-fi
-
-
-remaining_node_count=$requested_node_count
-
-while [ $remaining_node_count -gt 0 ]
-do
-    for node in $node_list; do
-        if [ $remaining_node_count -gt 0 ]
-        then
-            echo "Starting server on node: $node"
-            cat run-node.sh | ssh $node /bin/bash
-            echo "Started server on node: $node"
-            remaining_node_count=$((remaining_node_count-1))
-        fi
-    done
-done
-
-
-
-
-
-
-
-
-
-
+node_list=$(echo "$availe_nodes" | shuf -n "$1")
+echo "Node list: $node_list"  # DEBUG PRINT
 
 json_output=()
 
