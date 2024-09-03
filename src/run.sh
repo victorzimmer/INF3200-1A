@@ -51,7 +51,7 @@ do
         if [ $remaining_node_count -gt 0 ]
         then
             port=$(shuf -i 49152-65535 -n 1)
-            (echo "port=$port"; cat run-node.sh) | ssh $node /bin/bash
+            (echo "nodename=$node port=$port"; cat run-node.sh) | ssh $node /bin/bash
             echo "Started server on node: $node:$port"
             deployed_services+=("$node:$port")
             remaining_node_count=$((remaining_node_count-1))
