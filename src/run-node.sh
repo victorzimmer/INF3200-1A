@@ -14,7 +14,7 @@ else
    echo "Downloaded binary file."
 fi
 
-port=$(shuf -i 49152-65535 -n 1)
+
 echo "Launching on $HOSTNAME:$port"
 ROCKET_ADDRESS=0.0.0.0 ROCKET_PORT=$port A1_HOSTNAME=$HOSTNAME A1_PORT=$port nohup ./$BINARY_FILE &> /dev/null < /dev/null &
 

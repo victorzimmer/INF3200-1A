@@ -43,14 +43,17 @@ fi
 
 remaining_node_count=$requested_node_count
 
+deployed_services=()
+
 while [ $remaining_node_count -gt 0 ]
 do
     for node in $node_list; do
         if [ $remaining_node_count -gt 0 ]
         then
-            echo "Starting server on node: $node"
-            cat run-node.sh | ssh $node /bin/bash
-            echo "Started server on node: $node"
+            port=$(shuf -i 49152-65535 -n 1)
+            (echo "port=$port"; cat run-node.sh) | ssh $node /bin/bash
+            echo "Started server on node: $node:$port"
+            deployed_services+=("$node:$port")
             remaining_node_count=$((remaining_node_count-1))
         fi
     done
@@ -58,60 +61,22 @@ done
 
 
 
+# Initialize the JSON string
+json_result="["
 
+# Remove the trailing comma (only if the array isn't empty) and close the JSON array
+if [ ${#deployed_services[@]} -gt 0 ]; then
+    # Loop through the deployed_services array and append each service to json_result
+    for service in "${deployed_services[@]}"; do
+        json_result+="\"$service\","
+    done
 
+    # Strip last comma
+    json_result="${json_result%,}]"
+else
+    # Handle empty list
+    json_result+="]"
+fi
 
-
-
-
-
-
-json_output=()
-
-
-# TODO: håndtere at det er etterspurt flere servere enn det er noder
-# TODO: sette inn vår main og container
-
-# for node in $node_list; do
-#     echo "Starting server on node: $node"  # DEBUG PRINT
-#     port=$(shuf -i 49152-65535 -n 1)       # Get a random port number between 49152 and 65535 <- from the assignment
-#     # Command to start the server with ssh
-#     ## sjekke at podman er installert, last ned conteiner
-#     ssh -f $node "echo $HOST; exit"
-#     json_output+=("\"$node:$port\"")
-# done
-
-
-requested_nodes=$1
-
-while (( requested_nodes > 0 )); do
-    if (( requested_nodes > node_count )); then
-        for node in "${available_nodes[@]}"; do
-            echo "Starting server on node: $node"  # DEBUG PRINT
-            port=$(shuf -i 49152-65535 -n 1)       # Get a random port number between 49152 and 65535
-            # Command to start the server with ssh
-            ssh -f $node "echo $HOST; exit"
-            json_output+=("\"$node:$port\"")
-        done
-        requested_nodes=$((requested_nodes - node_count))
-    else
-        for ((i=0; i<requested_nodes; i++)); do
-            node="${available_nodes[$i]}"
-            echo "Starting server on node: $node"  # DEBUG PRINT
-            port=$(shuf -i 49152-65535 -n 1)       # Get a random port number between 49152 and 65535
-            # Command to start the server with ssh
-            ssh -f $node "echo $HOST; exit"
-            json_output+=("\"$node:$port\"")
-        done
-        requested_nodes=0
-    fi
-done
-
-# Format the output as a JSON list
-json_result="[$(IFS=,; echo "${json_output[*]}")]"
-echo "$json_result"
-
-
-# Format the output as a JSON list
-json_result="[$(IFS=,; echo "${json_output[*]}")]"
+# Print the JSON string
 echo "$json_result"
