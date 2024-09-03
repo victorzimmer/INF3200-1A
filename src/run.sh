@@ -14,6 +14,21 @@ if ! [[ "$1" =~ $regex_positive_integer ]]; then
     exit 1
 fi
 
+
+# Download run-node.sh if not already present
+if [ -f "run-node.sh" ]; then
+   echo "run-node.sh already present."
+else
+   echo "Downloading run-node.sh..."
+   wget -q "https://raw.githubusercontent.com/victorzimmer/INF3200-1A/master/src/run-node.sh"
+   echo "Downloaded run-node.sh."
+fi
+
+
+
+
+
+
 # Number of requested nodes is initialized as requested by user
 requested_node_count=$1
 
