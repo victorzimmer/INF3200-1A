@@ -33,3 +33,5 @@ The server is ready for both containerized deployment and binary distribution fo
     /share/ifi/cleanup.sh
     ```
 
+### Note: 
+Since the program picks ports at random, there is always a small chance that you may experience that the port number is already in use. If this happen, try again.
