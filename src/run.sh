@@ -67,6 +67,10 @@ do
         then
             port=$(shuf -i 49152-65535 -n 1)
             (echo "nodename=$node port=$port"; cat run-node.sh) | ssh $node /bin/bash
+            # TODO: add precessor and successor, might look something like this curl http://$node:$port/setup/precessor -d SOME_DATA
+            
+            # TODO: calculate finger table
+
             echo "Started server on node: $node:$port"
             deployed_services+=("$node:$port")
             remaining_node_count=$((remaining_node_count-1))
