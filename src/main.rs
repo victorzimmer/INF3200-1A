@@ -4,9 +4,23 @@ extern crate rocket;
 use rocket::State;
 use std::env;
 
+struct Node {
+    id: String,
+    address: String,
+    successor: Option<String>,
+    predecessor: Option<String>,
+    finger_table: Vec<String>,
+    data: Arc<Mutex<HashMap<String, String>>,       // datastruktur som inneholder en HashMap hvor både nøklene og verdiene er String
+}
+
 struct A1Config {
     hostname: String,
     port: String,
+    node: Arc<Mutex<Node>>,         // Mutex to ensure that only one thread can modify it at a time, Arc to allow multiple threads to have access to this protected Node
+}
+
+fn hash(key: &str) -> String {
+    // hash function
 }
 
 #[get("/helloworld")]
