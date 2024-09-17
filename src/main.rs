@@ -3,6 +3,7 @@ extern crate rocket;
 
 use rocket::State;
 use std::env;
+use sha2::{Digest, Sha256};
 
 struct Node {
     id: String,
@@ -19,8 +20,14 @@ struct A1Config {
     node: Arc<Mutex<Node>>,         // Mutex to ensure that only one thread can modify it at a time, Arc to allow multiple threads to have access to this protected Node
 }
 
-fn hash(key: &str) -> String {
-    // hash function
+
+
+// function that takes in a key (as a string) and returns a int (u64)
+fn hash(key: &str) -> u64 {
+    let mut hasher = Sha256::new();          // create a new Sha256 - 256 byte (32-bytes) hash
+    hasher.update(key);                      // update the hasher with the key
+    let result = hasher.finalize();          // finalize the hasher and store the result in the variable result
+    
 }
 
 #[get("/helloworld")]
