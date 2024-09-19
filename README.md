@@ -1,4 +1,4 @@
-# 3200-1A
+# 3200-1B
 
 ## Assignment 1A for INF-3200
 
@@ -9,13 +9,15 @@ The HTTP server is implemented in Rust and replies to a single endpoint, `/hello
 The server is ready for both containerized deployment and binary distribution for Linux (x86_64) and macOS (aarch64).
 
 ## Downloading
-1. Log in to the cluster.
-2. To download the script, run the following on the cluster: 
-    ```bash 
-    wget https://raw.githubusercontent.com/victorzimmer/INF3200-1A/master/src/run.sh
 
-    chmod 552 run.sh
-    ```
+1. Log in to the cluster.
+2. To download the script, run the following on the cluster:
+
+   ```bash
+   wget https://raw.githubusercontent.com/victorzimmer/INF3200-1A/master/src/run.sh
+
+   chmod 552 run.sh
+   ```
 
 ## Running
 
@@ -24,14 +26,15 @@ The server is ready for both containerized deployment and binary distribution fo
    ```bash
    ./run.sh <number of nodes>
    ```
-3. Test with th python script 
-    ```bash
+3. Test with th python script
+   ```bash
    python3 testscript.py '<output from run.sh>'
    ```
-4. Clean up by running 
-    ```bash 
-    /share/ifi/cleanup.sh
-    ```
+4. Clean up by running
+   ```bash
+   /share/ifi/cleanup.sh
+   ```
 
-### Note: 
+### Note:
+
 Since the program picks ports at random, there is always a small chance that you may experience that the port number is already in use. If this happen, try again.
