@@ -26,22 +26,22 @@ struct A1Config {
     node: Node, // Mutex to ensure that only one thread can modify it at a time, Arc to allow multiple threads to have access to this protected Node
 }
 
-// function that takes in a key (as a string) and returns a int (u64)
-fn hash(key: &str) -> u64 {
-    let mut hasher = Sha256::new(); // create a new Sha256 - 256 byte (32-bytes) hash
-    hasher.update(key); // update the hasher with the key
-    let result = hasher.finalize(); // finalize the hasher and store the result in the variable result
-}
+// // function that takes in a key (as a string) and returns a int (u64)
+// fn hash(key: &str) -> u64 {
+//     let mut hasher = Sha256::new(); // create a new Sha256 - 256 byte (32-bytes) hash
+//     hasher.update(key); // update the hasher with the key
+//     let result = hasher.finalize(); // finalize the hasher and store the result in the variable result
+// }
 
 // end-point to test if the server is running
 #[get("/helloworld")]
 fn helloworld(a1_config: &State<A1Config>) -> String {
-    format!("{}:{}", a1_config.hostname, a1_config.port);
+    format!("{}:{}", a1_config.hostname, a1_config.port)
 }
 
 // endpoint to retrive a value for a given
 #[get("/storage/<key>")]
-fn get_storage(key: &str) -> _ {
+fn get_storage(key: &str) -> Result<String, Custom<String>> {
     println!("Get storage, key: {}", key);
     let node = a1_config.node.lock().unwrap();
     node.data.lock().unwrap().get(key).clonned();
