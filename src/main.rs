@@ -1,12 +1,12 @@
 #[macro_use]
 extern crate rocket;
 
-use rocket::serde::json::Json;
+use hex_literal::hex;
+// use rocket::serde:
 use rocket::State;
+use sha1::{Digest, Sha1};
 use std::collections::HashMap;
 use std::env;
-use std::env;
-use std::sync::{Arc, Mutex};
 
 // use sha2::{Digest, Sha256};
 
@@ -17,7 +17,7 @@ struct Node {
     successor: Option<String>,
     precessor: Option<String>,
     finger_table: Vec<String>,
-    data: Arc<Mutex<HashMap<String, String>>>, //Key-value pairs stored on this node
+    data: HashMap<String, String>, //Key-value pairs stored on this node
 }
 
 struct A1Config {
@@ -41,63 +41,91 @@ fn helloworld(a1_config: &State<A1Config>) -> String {
 
 // endpoint to retrive a value for a given
 #[get("/storage/<key>")]
-fn get_storage(key: &str) -> Result<String, Custom<String>> {
+fn get_storage(key: &str) -> () {
     println!("Get storage, key: {}", key);
-    let node = a1_config.node.lock().unwrap();
-    node.data.lock().unwrap().get(key).clonned();
+    // let node = a1_config.node.lock().unwrap();
+    // node.data.lock().unwrap().get(key).clonned();
     //  TODO: check if it is responsible for the given key, if not forward the request to the correct node
+    let mut hasher = Sha1::new();
+
+    hasher.update(b"Text");
+    let hashed = hasher.finalize();
+
+    println!("Hashed value: {:?}\n", hashed);
 }
 
 // endpoint to store a key-value pair
 #[put("/storage/<key>", format = "json", data = "<value>")]
-fn put_storage(key: &str, value: Json<String>, a1_config: &State<A1Config>) -> _ {
+fn put_storage(key: &str, value: &str, a1_config: &State<A1Config>) -> () {
     // TODO: find out what type it should return. should not be _
     println!("Put storage, key: {}", key);
-    let node = a1_config.node.lock().unwrap();
-    node.data
-        .lock()
-        .unwrap()
-        .insert(key.to_string(), value.into_inner());
+
+    let mut hasher = Sha1::new();
+
+    hasher.update(b"Text");
+    let hashed = hasher.finalize();
+
+    println!("Hashed value: {:?}\n", hashed);
+
+    // a1_config.node.data.insert(key.to_string(), value);
+    // let node = a1_config.node.lock().unwrap();
+    // node.data
+    //     .lock()
+    //     .unwrap()
+    //     .insert(key.to_string(), value.into_inner());
     //  TODO: check if it is responsible for the given key, if not forward the request to the correct node
 }
 
 // Endpoint to get information about the network
 #[get("/network")]
-fn get_network() -> _ {
+fn get_network() -> () {
     println!("Get network");
 }
 
 #[get("/ring/precessor")]
-fn get_precessor(a1_config: &State<A1Config>) -> Json<Vec<String>> {
+fn get_precessor(a1_config: &State<A1Config>) -> String {
     println!("Get precessor");
-    format!("{}", a1_config.node.precessor);
+    format!(
+        "{}",
+        a1_config.node.precessor.as_ref().expect("No precessor")
+    )
 }
 
 #[get("/ring/successor")]
 fn get_successor(a1_config: &State<A1Config>) -> String {
     println!("Get successor");
-    format!("{}", a1_config.node.successor);
+    format!(
+        "{}",
+        a1_config.node.successor.as_ref().expect("No successor")
+    )
 }
 
-#[put("/ring/precessor")]
-fn put_precessor(a1_config: &State<A1Config>, newPrecessor: &str) -> String {
+#[put("/ring/precessor/<new_precessor>")]
+fn put_precessor(a1_config: &State<A1Config>, new_precessor: &str) -> String {
     println!("Put precessor");
-    a1_config.node.precessor = newPrecessor;
+    // a1_config.node.precessor = newPrecessor;
+    format!(
+        "{}",
+        a1_config.node.precessor.as_ref().expect("No precessor")
+    )
 }
 
-#[put("/ring/successor")]
-fn put_successor(a1_config: &State<A1Config>, newSuccessor: &str) -> String {
+#[put("/ring/successor/<new_successor>")]
+fn put_successor(a1_config: &State<A1Config>, new_successor: &str) -> String {
     println!("Put successor");
-    a1_config.node.successor = newSuccessor;
+    format!(
+        "{}",
+        a1_config.node.successor.as_ref().expect("No successor")
+    )
 }
 
 #[get("/ring/finger_table")]
-fn get_finger_table() -> _ {
+fn get_finger_table() -> () {
     println!("Get finger table");
 }
 
 #[get("/ring/calculate_fingertable")]
-fn calculate_finger_table() -> _ {
+fn calculate_finger_table() -> () {
     println!("Calculate finger table");
 }
 
@@ -105,11 +133,11 @@ fn calculate_finger_table() -> _ {
 fn rocket() -> _ {
     let node = Node {
         id: env::var("ID").expect("id not provided"),
-        address: env::var("address").expect("address not provided"),
-        successor: _,
-        precessor: _,
+        address: env::var("A1_HOSTNAME").expect("address not provided"),
+        successor: None,
+        precessor: None,
         finger_table: vec![],
-        data: vec![],
+        data: HashMap::new(),
     };
 
     let a1_config = A1Config {
