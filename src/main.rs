@@ -33,6 +33,17 @@ struct A1Config {
 //     let result = hasher.finalize(); // finalize the hasher and store the result in the variable result
 // }
 
+fn shortest_distance_on_circumference(p1: i64, p2: i64) -> i64 {
+    let forwardsDistance = p2 - p1;
+    let backwardsDistance = (360 - p2) + p1;
+
+    if (forwardsDistance < backwardsDistance) {
+        return forwardsDistance;
+    } else {
+        return -backwardsDistance;
+    }
+}
+
 // end-point to test if the server is running
 #[get("/helloworld")]
 fn helloworld(a1_config: &State<A1Config>) -> String {
