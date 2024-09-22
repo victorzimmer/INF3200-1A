@@ -165,6 +165,17 @@ fn rocket() -> _ {
         node: node,
     };
 
+    a1_config.node.storage.store("key", "stored_value");
+
+    println!(
+        "Retrieved: {}",
+        a1_config
+            .node
+            .storage
+            .retrieve("key")
+            .expect("No value retrieved!")
+    );
+
     rocket::build().manage(a1_config).mount(
         "/",
         routes![
