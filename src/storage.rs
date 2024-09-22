@@ -14,10 +14,13 @@ impl Storage {
     }
 
     pub fn store(&self, key: &str, value: &str) {
-        todo!();
+        let mut storage = self.storage.write().unwrap();
+        storage.insert(key.to_string(), value.to_string());
     }
 
-    pub fn retrieve(&self, key: &str) -> Option<&str> {
-        todo!();
+    pub fn retrieve(&self, key: &str) -> Option<String> {
+        let storage = self.storage.read().unwrap();
+        let value = storage.get(key).map_or(None, |v| Some(v.as_str()));
+        return value.map_or(None, |s| Some(s.to_string()));
     }
 }
