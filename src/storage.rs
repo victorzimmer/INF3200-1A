@@ -20,7 +20,7 @@ impl Storage {
 
     pub fn retrieve(&self, key: &str) -> Option<String> {
         let storage = self.storage.read().unwrap();
-        let value = storage.get(key).map_or(None, |v| Some(v.as_str()));
-        return value.map_or(None, |s| Some(s.to_string()));
+        let value = storage.get(key).map_or(None, |v| Some(v.to_string()));
+        return value;
     }
 }
