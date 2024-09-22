@@ -5,10 +5,11 @@ use hex_literal::hex;
 // use rocket::serde:
 use rocket::State;
 use sha1::{Digest, Sha1};
-use std::collections::HashMap;
 use std::env;
+use std::sync::Arc;
 
-// use sha2::{Digest, Sha256};
+mod storage;
+use storage::Storage;
 
 // Node represent a node in the Chord
 struct Node {
@@ -17,7 +18,7 @@ struct Node {
     successor: Option<String>,
     precessor: Option<String>,
     finger_table: Vec<String>,
-    data: HashMap<String, String>, //Key-value pairs stored on this node
+    storage: Arc<Storage>,
 }
 
 struct A1Config {
@@ -91,53 +92,60 @@ fn put_storage(key: &str, value: &str, a1_config: &State<A1Config>) -> () {
 #[get("/network")]
 fn get_network() -> () {
     println!("Get network");
+    todo!();
 }
 
 #[get("/ring/precessor")]
 fn get_precessor(a1_config: &State<A1Config>) -> String {
     println!("Get precessor");
-    format!(
-        "{}",
-        a1_config.node.precessor.as_ref().expect("No precessor")
-    )
+    // format!(
+    //     "{}",
+    //     a1_config.node.precessor.as_ref().expect("No precessor")
+    // )
+    todo!();
 }
 
 #[get("/ring/successor")]
 fn get_successor(a1_config: &State<A1Config>) -> String {
     println!("Get successor");
-    format!(
-        "{}",
-        a1_config.node.successor.as_ref().expect("No successor")
-    )
+    // format!(
+    //     "{}",
+    //     a1_config.node.successor.as_ref().expect("No successor")
+    // )
+    todo!();
 }
 
 #[put("/ring/precessor/<new_precessor>")]
 fn put_precessor(a1_config: &State<A1Config>, new_precessor: &str) -> String {
     println!("Put precessor");
     // a1_config.node.precessor = newPrecessor;
-    format!(
-        "{}",
-        a1_config.node.precessor.as_ref().expect("No precessor")
-    )
+    // format!(
+    //     "{}",
+    //     a1_config.node.precessor.as_ref().expect("No precessor")
+    // )
+    todo!();
 }
 
 #[put("/ring/successor/<new_successor>")]
 fn put_successor(a1_config: &State<A1Config>, new_successor: &str) -> String {
     println!("Put successor");
-    format!(
-        "{}",
-        a1_config.node.successor.as_ref().expect("No successor")
-    )
+    // format!(
+    //     "{}",
+    //     a1_config.node.successor.as_ref().expect("No successor")
+    // )
+    todo!();
 }
 
 #[get("/ring/finger_table")]
 fn get_finger_table() -> () {
     println!("Get finger table");
+    todo!();
 }
 
 #[get("/ring/calculate_fingertable")]
 fn calculate_finger_table() -> () {
     println!("Calculate finger table");
+    todo!();
 }
 
 #[launch]
@@ -148,7 +156,7 @@ fn rocket() -> _ {
         successor: None,
         precessor: None,
         finger_table: vec![],
-        data: HashMap::new(),
+        storage: Arc::new(Storage::new()),
     };
 
     let a1_config = A1Config {
