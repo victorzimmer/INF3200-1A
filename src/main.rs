@@ -15,6 +15,8 @@ use storage::Storage;
 struct Node {
     id: String,
     address: String,
+    // position: i32,
+    // range: i32,
     successor: Option<String>,
     precessor: Option<String>,
     finger_table: Vec<String>,
@@ -35,13 +37,13 @@ struct A1Config {
 // }
 
 fn shortest_distance_on_circumference(p1: i64, p2: i64) -> i64 {
-    let forwardsDistance = p2 - p1;
-    let backwardsDistance = (360 - p2) + p1;
+    let forwards_distance = p2 - p1;
+    let backwards_distance = (360 - p2) + p1;
 
-    if (forwardsDistance < backwardsDistance) {
-        return forwardsDistance;
+    if (forwards_distance < backwards_distance) {
+        return forwards_distance;
     } else {
-        return -backwardsDistance;
+        return -backwards_distance;
     }
 }
 
@@ -62,8 +64,12 @@ fn get_storage(key: &str) -> () {
 
     hasher.update(b"Text");
     let hashed = hasher.finalize();
+    let hashed_location: i32 = hashed
+        .iter()
+        .fold(0, |accumulator, x| accumulator + (*x as i32));
 
     println!("Hashed value: {:?}\n", hashed);
+    println!("Hashed location: {:?}\n", hashed_location);
 }
 
 // endpoint to store a key-value pair
@@ -76,8 +82,10 @@ fn put_storage(key: &str, value: &str, a1_config: &State<A1Config>) -> () {
 
     hasher.update(b"Text");
     let hashed = hasher.finalize();
+    let hashed_location: i32 = hashed.iter().fold(0, |i, x| i + (*x as i32));
 
     println!("Hashed value: {:?}\n", hashed);
+    println!("Hashed location: {:?}\n", hashed_location);
 
     // a1_config.node.data.insert(key.to_string(), value);
     // let node = a1_config.node.lock().unwrap();
