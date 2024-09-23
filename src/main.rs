@@ -73,10 +73,10 @@ fn get_storage(key: &str) -> () {
 }
 
 // endpoint to store a key-value pair
-#[put("/storage/<key>", format = "json", data = "<value>")]
+#[put("/storage/<key>", format = "text", data = "<value>")]
 fn put_storage(key: &str, value: &str, a1_config: &State<A1Config>) -> () {
     // TODO: find out what type it should return. should not be _
-    println!("Put storage, key: {}", key);
+    println!("Put storage, key: {}, value: {}", key, value);
 
     let mut hasher = Sha1::new();
 
