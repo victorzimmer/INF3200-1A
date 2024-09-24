@@ -11,22 +11,20 @@ use std::sync::Arc;
 mod storage;
 use storage::Storage;
 
-// Node represent a node in the Chord
+// Node represent a node in the cluster
 struct Node {
-    id: String,
-    address: String,
-    // position: i32,
-    // range: i32,
-    successor: Option<String>,
-    precessor: Option<String>,
-    finger_table: Vec<String>,
-    storage: Arc<Storage>,
+    hostname: String,
+    port: u16,
+    position: i32,
+    range: i32,
 }
 
-struct A1Config {
-    hostname: String,
-    port: String,
-    node: Node, // Mutex to ensure that only one thread can modify it at a time, Arc to allow multiple threads to have access to this protected Node
+struct NodeConfig {
+    local: Node,
+    successor: Option<Node>,
+    precessor: Option<Node>,
+    finger_table: Vec<Node>,
+    storage: Arc<Storage>,
 }
 
 // // function that takes in a key (as a string) and returns a int (u64)
@@ -49,8 +47,8 @@ fn shortest_distance_on_circumference(p1: i64, p2: i64) -> i64 {
 
 // end-point to test if the server is running
 #[get("/helloworld")]
-fn helloworld(a1_config: &State<A1Config>) -> String {
-    format!("{}:{}", a1_config.hostname, a1_config.port)
+fn helloworld(node_config: &State<NodeConfig>) -> String {
+    format!("{}:{}", node_config.local.hostname, node_config.local.port)
 }
 
 // endpoint to retrive a value for a given
@@ -74,7 +72,7 @@ fn get_storage(key: &str) -> () {
 
 // endpoint to store a key-value pair
 #[put("/storage/<key>", format = "text", data = "<value>")]
-fn put_storage(key: &str, value: &str, a1_config: &State<A1Config>) -> () {
+fn put_storage(key: &str, value: &str, node_config: &State<NodeConfig>) -> () {
     // TODO: find out what type it should return. should not be _
     println!("Put storage, key: {}, value: {}", key, value);
 
@@ -104,7 +102,7 @@ fn get_network() -> () {
 }
 
 #[get("/ring/precessor")]
-fn get_precessor(a1_config: &State<A1Config>) -> String {
+fn get_precessor(node_config: &State<NodeConfig>) -> String {
     println!("Get precessor");
     // format!(
     //     "{}",
@@ -114,7 +112,7 @@ fn get_precessor(a1_config: &State<A1Config>) -> String {
 }
 
 #[get("/ring/successor")]
-fn get_successor(a1_config: &State<A1Config>) -> String {
+fn get_successor(node_config: &State<NodeConfig>) -> String {
     println!("Get successor");
     // format!(
     //     "{}",
@@ -124,7 +122,7 @@ fn get_successor(a1_config: &State<A1Config>) -> String {
 }
 
 #[put("/ring/precessor/<new_precessor>")]
-fn put_precessor(a1_config: &State<A1Config>, new_precessor: &str) -> String {
+fn put_precessor(node_config: &State<NodeConfig>, new_precessor: &str) -> String {
     println!("Put precessor");
     // a1_config.node.precessor = newPrecessor;
     // format!(
@@ -135,7 +133,7 @@ fn put_precessor(a1_config: &State<A1Config>, new_precessor: &str) -> String {
 }
 
 #[put("/ring/successor/<new_successor>")]
-fn put_successor(a1_config: &State<A1Config>, new_successor: &str) -> String {
+fn put_successor(node_config: &State<NodeConfig>, new_successor: &str) -> String {
     println!("Put successor");
     // format!(
     //     "{}",
@@ -158,33 +156,33 @@ fn calculate_finger_table() -> () {
 
 #[launch]
 fn rocket() -> _ {
-    let node = Node {
-        id: env::var("ID").expect("id not provided"),
-        address: env::var("A1_HOSTNAME").expect("address not provided"),
+    let node_config = NodeConfig {
+        local: Node {
+            hostname: env::var("A1_HOSTNAME").expect("Hostname not provided!"),
+            port: env::var("A1_PORT")
+                .expect("Port not provided.")
+                .parse()
+                .expect("Unable to parse port value."),
+            position: 0,
+            range: 0,
+        },
         successor: None,
         precessor: None,
         finger_table: vec![],
         storage: Arc::new(Storage::new()),
     };
 
-    let a1_config = A1Config {
-        hostname: env::var("A1_HOSTNAME").expect("Hostname not provided!"),
-        port: env::var("A1_PORT").expect("Port not provided!"),
-        node: node,
-    };
-
-    a1_config.node.storage.store("key", "stored_value");
+    node_config.storage.store("key", "stored_value");
 
     println!(
         "Retrieved: {}",
-        a1_config
-            .node
+        node_config
             .storage
             .retrieve("key")
             .expect("No value retrieved!")
     );
 
-    rocket::build().manage(a1_config).mount(
+    rocket::build().manage(node_config).mount(
         "/",
         routes![
             helloworld,
