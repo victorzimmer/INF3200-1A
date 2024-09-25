@@ -93,14 +93,6 @@ fn put_storage(key: &str, value: &str, node_config: &State<Arc<RwLock<NodeConfig
 
     println!("Hashed value: {:?}\n", hashed);
     println!("Hashed location: {:?}\n", hashed_location);
-
-    // a1_config.node.data.insert(key.to_string(), value);
-    // let node = a1_config.node.lock().unwrap();
-    // node.data
-    //     .lock()
-    //     .unwrap()
-    //     .insert(key.to_string(), value.into_inner());
-    //  TODO: check if it is responsible for the given key, if not forward the request to the correct node
 }
 
 // Endpoint to get information about the network
@@ -131,8 +123,6 @@ fn get_network(node_config: &State<Arc<RwLock<NodeConfig>>>) -> Json<Vec<String>
     }
 
     return Json(known_nodes);
-    // println!("Get network");
-    // todo!();
 }
 
 #[get("/ring/precessor")]
@@ -162,9 +152,8 @@ fn put_successor(node_config: &State<Arc<RwLock<NodeConfig>>>, new_successor: Js
 }
 
 #[get("/ring/finger_table")]
-fn get_finger_table() -> () {
-    println!("Get finger table");
-    todo!();
+fn get_finger_table(node_config: &State<Arc<RwLock<NodeConfig>>>) -> Json<Vec<Node>> {
+    return Json(node_config.read().unwrap().finger_table.clone());
 }
 
 #[get("/ring/calculate_fingertable")]
