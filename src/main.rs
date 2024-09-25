@@ -105,9 +105,34 @@ fn put_storage(key: &str, value: &str, node_config: &State<Arc<RwLock<NodeConfig
 
 // Endpoint to get information about the network
 #[get("/network")]
-fn get_network() -> () {
-    println!("Get network");
-    todo!();
+fn get_network(node_config: &State<Arc<RwLock<NodeConfig>>>) -> Json<Vec<String>> {
+    let mut known_nodes: Vec<String> = Vec::new();
+
+    match node_config.read().unwrap().precessor.clone() {
+        None => {}
+        Some(node) => {
+            let mut hostname_port = String::new();
+            hostname_port.push_str(&node.hostname);
+            hostname_port.push_str(":");
+            hostname_port.push_str(&node.port.to_string());
+            known_nodes.push(hostname_port);
+        }
+    }
+
+    match node_config.read().unwrap().successor.clone() {
+        None => {}
+        Some(node) => {
+            let mut hostname_port = String::new();
+            hostname_port.push_str(&node.hostname);
+            hostname_port.push_str(":");
+            hostname_port.push_str(&node.port.to_string());
+            known_nodes.push(hostname_port);
+        }
+    }
+
+    return Json(known_nodes);
+    // println!("Get network");
+    // todo!();
 }
 
 #[get("/ring/precessor")]
@@ -131,7 +156,7 @@ fn put_precessor(node_config: &State<Arc<RwLock<NodeConfig>>>, new_precessor: Js
     node_config.write().unwrap().precessor = Some(new_precessor.0);
 }
 
-#[put("/ring/successor", format = "text", data = "<new_successor>")]
+#[put("/ring/successor", data = "<new_successor>")]
 fn put_successor(node_config: &State<Arc<RwLock<NodeConfig>>>, new_successor: Json<Node>) -> () {
     node_config.write().unwrap().successor = Some(new_successor.0);
 }
