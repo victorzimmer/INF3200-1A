@@ -1,22 +1,27 @@
 #[macro_use]
 extern crate rocket;
 
-use hex_literal::hex;
-// use rocket::serde:
+use rocket::response::status::{BadRequest, NoContent};
+use rocket::serde::Deserialize;
+use rocket::serde::{json::Json, Serialize};
 use rocket::State;
 use sha1::{Digest, Sha1};
 use std::env;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 mod storage;
 use storage::Storage;
 
+const CHORD_RING_SIZE: u32 = 255 ^ 20; // Currently set to maximum sum of hash function output (20 bytes)
+
 // Node represent a node in the cluster
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(crate = "rocket::serde")]
 struct Node {
     hostname: String,
     port: u16,
-    position: i32,
-    range: i32,
+    position: u32,
+    range: u32,
 }
 
 struct NodeConfig {
@@ -24,7 +29,7 @@ struct NodeConfig {
     successor: Option<Node>,
     precessor: Option<Node>,
     finger_table: Vec<Node>,
-    storage: Arc<Storage>,
+    storage: Storage,
 }
 
 // // function that takes in a key (as a string) and returns a int (u64)
@@ -34,21 +39,25 @@ struct NodeConfig {
 //     let result = hasher.finalize(); // finalize the hasher and store the result in the variable result
 // }
 
-fn shortest_distance_on_circumference(p1: i64, p2: i64) -> i64 {
-    let forwards_distance = p2 - p1;
-    let backwards_distance = (360 - p2) + p1;
+// fn shortest_distance_on_circumference(p1: u32, p2: u32) -> i32 {
+//     let forwards_distance = p2 - p1;
+//     let backwards_distance = (CHORD_RING_SIZE - p2) + p1;
 
-    if (forwards_distance < backwards_distance) {
-        return forwards_distance;
-    } else {
-        return -backwards_distance;
-    }
-}
+//     if (forwards_distance < backwards_distance) {
+//         return forwards_distance.into();
+//     } else {
+//         return -backwards_distance;
+//     }
+// }
 
 // end-point to test if the server is running
 #[get("/helloworld")]
-fn helloworld(node_config: &State<NodeConfig>) -> String {
-    format!("{}:{}", node_config.local.hostname, node_config.local.port)
+fn helloworld(node_config: &State<Arc<RwLock<NodeConfig>>>) -> String {
+    format!(
+        "{}:{}",
+        node_config.read().unwrap().local.hostname,
+        node_config.read().unwrap().local.port
+    )
 }
 
 // endpoint to retrive a value for a given
@@ -72,7 +81,7 @@ fn get_storage(key: &str) -> () {
 
 // endpoint to store a key-value pair
 #[put("/storage/<key>", format = "text", data = "<value>")]
-fn put_storage(key: &str, value: &str, node_config: &State<NodeConfig>) -> () {
+fn put_storage(key: &str, value: &str, node_config: &State<Arc<RwLock<NodeConfig>>>) -> () {
     // TODO: find out what type it should return. should not be _
     println!("Put storage, key: {}, value: {}", key, value);
 
@@ -102,44 +111,29 @@ fn get_network() -> () {
 }
 
 #[get("/ring/precessor")]
-fn get_precessor(node_config: &State<NodeConfig>) -> String {
-    println!("Get precessor");
-    // format!(
-    //     "{}",
-    //     a1_config.node.precessor.as_ref().expect("No precessor")
-    // )
-    todo!();
+fn get_precessor(node_config: &State<Arc<RwLock<NodeConfig>>>) -> Result<Json<Node>, NoContent> {
+    match node_config.read().unwrap().precessor.clone() {
+        None => Err(NoContent),
+        Some(precessor) => return Ok(Json(precessor)),
+    }
 }
 
 #[get("/ring/successor")]
-fn get_successor(node_config: &State<NodeConfig>) -> String {
-    println!("Get successor");
-    // format!(
-    //     "{}",
-    //     a1_config.node.successor.as_ref().expect("No successor")
-    // )
-    todo!();
+fn get_successor(node_config: &State<Arc<RwLock<NodeConfig>>>) -> Result<Json<Node>, NoContent> {
+    match node_config.read().unwrap().successor.clone() {
+        None => Err(NoContent),
+        Some(successor) => return Ok(Json(successor)),
+    }
 }
 
-#[put("/ring/precessor/<new_precessor>")]
-fn put_precessor(node_config: &State<NodeConfig>, new_precessor: &str) -> String {
-    println!("Put precessor");
-    // a1_config.node.precessor = newPrecessor;
-    // format!(
-    //     "{}",
-    //     a1_config.node.precessor.as_ref().expect("No precessor")
-    // )
-    todo!();
+#[put("/ring/precessor", data = "<new_precessor>")]
+fn put_precessor(node_config: &State<Arc<RwLock<NodeConfig>>>, new_precessor: Json<Node>) -> () {
+    node_config.write().unwrap().precessor = Some(new_precessor.0);
 }
 
-#[put("/ring/successor/<new_successor>")]
-fn put_successor(node_config: &State<NodeConfig>, new_successor: &str) -> String {
-    println!("Put successor");
-    // format!(
-    //     "{}",
-    //     a1_config.node.successor.as_ref().expect("No successor")
-    // )
-    todo!();
+#[put("/ring/successor", format = "text", data = "<new_successor>")]
+fn put_successor(node_config: &State<Arc<RwLock<NodeConfig>>>, new_successor: Json<Node>) -> () {
+    node_config.write().unwrap().successor = Some(new_successor.0);
 }
 
 #[get("/ring/finger_table")]
@@ -156,7 +150,7 @@ fn calculate_finger_table() -> () {
 
 #[launch]
 fn rocket() -> _ {
-    let node_config = NodeConfig {
+    let node_config = Arc::new(RwLock::new(NodeConfig {
         local: Node {
             hostname: env::var("A1_HOSTNAME").expect("Hostname not provided!"),
             port: env::var("A1_PORT")
@@ -169,14 +163,20 @@ fn rocket() -> _ {
         successor: None,
         precessor: None,
         finger_table: vec![],
-        storage: Arc::new(Storage::new()),
-    };
+        storage: Storage::new(),
+    }));
 
-    node_config.storage.store("key", "stored_value");
+    node_config
+        .write()
+        .unwrap()
+        .storage
+        .store("key", "stored_value");
 
     println!(
         "Retrieved: {}",
         node_config
+            .read()
+            .unwrap()
             .storage
             .retrieve("key")
             .expect("No value retrieved!")
