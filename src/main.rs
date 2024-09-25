@@ -14,6 +14,12 @@ use storage::Storage;
 
 const CHORD_RING_SIZE: u32 = 255 ^ 20; // Currently set to maximum sum of hash function output (20 bytes)
 
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(crate = "rocket::serde")]
+struct SuppliedNetworkInformation {
+    network_id: String,
+}
+
 // Node represent a node in the cluster
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(crate = "rocket::serde")]
@@ -25,6 +31,8 @@ struct Node {
 }
 
 struct NodeConfig {
+    network_id: Option<String>,
+    connected: bool,
     local: Node,
     successor: Option<Node>,
     precessor: Option<Node>,
@@ -95,36 +103,6 @@ fn put_storage(key: &str, value: &str, node_config: &State<Arc<RwLock<NodeConfig
     println!("Hashed location: {:?}\n", hashed_location);
 }
 
-// Endpoint to get information about the network
-#[get("/network")]
-fn get_network(node_config: &State<Arc<RwLock<NodeConfig>>>) -> Json<Vec<String>> {
-    let mut known_nodes: Vec<String> = Vec::new();
-
-    match node_config.read().unwrap().precessor.clone() {
-        None => {}
-        Some(node) => {
-            let mut hostname_port = String::new();
-            hostname_port.push_str(&node.hostname);
-            hostname_port.push_str(":");
-            hostname_port.push_str(&node.port.to_string());
-            known_nodes.push(hostname_port);
-        }
-    }
-
-    match node_config.read().unwrap().successor.clone() {
-        None => {}
-        Some(node) => {
-            let mut hostname_port = String::new();
-            hostname_port.push_str(&node.hostname);
-            hostname_port.push_str(":");
-            hostname_port.push_str(&node.port.to_string());
-            known_nodes.push(hostname_port);
-        }
-    }
-
-    return Json(known_nodes);
-}
-
 #[get("/ring/precessor")]
 fn get_precessor(node_config: &State<Arc<RwLock<NodeConfig>>>) -> Result<Json<Node>, NoContent> {
     match node_config.read().unwrap().precessor.clone() {
@@ -162,6 +140,52 @@ fn calculate_finger_table() -> () {
     todo!();
 }
 
+// Endpoint to get information about the network
+#[get("/network")]
+fn get_network(node_config: &State<Arc<RwLock<NodeConfig>>>) -> Json<Vec<String>> {
+    let mut known_nodes: Vec<String> = Vec::new();
+
+    match node_config.read().unwrap().precessor.clone() {
+        None => {}
+        Some(node) => {
+            let mut hostname_port = String::new();
+            hostname_port.push_str(&node.hostname);
+            hostname_port.push_str(":");
+            hostname_port.push_str(&node.port.to_string());
+            known_nodes.push(hostname_port);
+        }
+    }
+
+    match node_config.read().unwrap().successor.clone() {
+        None => {}
+        Some(node) => {
+            let mut hostname_port = String::new();
+            hostname_port.push_str(&node.hostname);
+            hostname_port.push_str(":");
+            hostname_port.push_str(&node.port.to_string());
+            known_nodes.push(hostname_port);
+        }
+    }
+
+    return Json(known_nodes);
+}
+
+#[put("/network/initialize", data = "<network_information>")]
+fn put_network_initialize(
+    node_config: &State<Arc<RwLock<NodeConfig>>>,
+    network_information: Json<SuppliedNetworkInformation>,
+) -> () {
+    todo!();
+}
+
+#[put("/network/join", data = "<existing_node>")]
+fn put_network_join(
+    node_config: &State<Arc<RwLock<NodeConfig>>>,
+    existing_node: Json<String>,
+) -> () {
+    todo!();
+}
+
 #[launch]
 fn rocket() -> _ {
     let node_config = Arc::new(RwLock::new(NodeConfig {
@@ -178,6 +202,8 @@ fn rocket() -> _ {
         precessor: None,
         finger_table: vec![],
         storage: Storage::new(),
+        network_id: None,
+        connected: false,
     }));
 
     node_config
@@ -208,7 +234,9 @@ fn rocket() -> _ {
             put_precessor,
             put_successor,
             get_finger_table,
-            calculate_finger_table
+            calculate_finger_table,
+            put_network_initialize,
+            put_network_join
         ],
     )
 }
