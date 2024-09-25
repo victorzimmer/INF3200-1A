@@ -37,6 +37,6 @@ plt.tight_layout()
 if not os.path.exists('plot'):
     os.makedirs('plot')
 
-plt.savefig('plot/dht_performance.png', dpi=300, bbox_inches='tight')
+plt.savefig('plot/dht_performance.pdf', dpi=300, bbox_inches='tight',  format='pdf')
 
-plt.show()
+# plt.show()
