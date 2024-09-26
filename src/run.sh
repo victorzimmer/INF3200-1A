@@ -60,6 +60,11 @@ remaining_node_count=$requested_node_count
 
 deployed_services=()
 
+deployed_nodes_count=0
+
+previous_node=0
+previous_port=0
+
 while [ $remaining_node_count -gt 0 ]
 do
     for node in $node_list; do
@@ -68,12 +73,21 @@ do
             port=$(shuf -i 49152-65535 -n 1)
             (echo "nodename=$node port=$port"; cat run-node.sh) | ssh $node /bin/bash
             # TODO: add precessor and successor, might look something like this curl http://$node:$port/setup/precessor -d SOME_DATA
-            
+
             # TODO: calculate finger table
 
             echo "Started server on node: $node:$port"
             deployed_services+=("$node:$port")
             remaining_node_count=$((remaining_node_count-1))
+
+            if [ deployed_nodes_count -eq 0 ]
+            then
+                echo "Initializing network on first node."
+                curl -v -X "PUT" -H "Content-Type: application/json" --data "{\"network_id\": \"chord-network\"}" "http://$node:$port/network/initialize"
+            else
+                echo "Joining node to previous node."
+                curl -v -X "PUT" -H "Content-Type: application/json" --data "{\"hostname\": \"$previous_node\", \"port\":$previous_port}" "http://$node:$port/network/join"
+            fi
         fi
     done
 done
