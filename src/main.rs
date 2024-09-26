@@ -108,7 +108,7 @@ fn get_storage(
     key: &str,
 ) -> Result<String, Custom<String>> {
     let config = node_config.read().expect("RWLock is poisoned");
-    println!("Get storage, key: {}", key);
+    // println!("Get storage, key: {}", key);
     // let node = a1_config.node.lock().unwrap();
     // node.data.lock().unwrap().get(key).clonned();
     //  TODO: check if it is responsible for the given key, if not forward the request to the correct node
@@ -127,8 +127,8 @@ fn get_storage(
     let hash_slice: [u8; 2] = [hashed[0], hashed[1]];
     let hashed_location: u16 = u16::from_be_bytes(hash_slice);
 
-    println!("Hashed value: {:?}\n", hashed);
-    println!("Hashed location: {:?}\n", hashed_location);
+    // println!("Hashed value: {:?}\n", hashed);
+    // println!("Hashed location: {:?}\n", hashed_location);
 
     // Special case for range wrapping circle
     if RING_SIZE - config.local.position < config.local.range {
@@ -219,7 +219,7 @@ fn put_storage(
     value: &str,
 ) -> Result<String, Custom<String>> {
     let config = node_config.read().expect("RWLock is poisoned");
-    println!("Get storage, key: {}", key);
+    // println!("Get storage, key: {}", key);
     // let node = a1_config.node.lock().unwrap();
     // node.data.lock().unwrap().get(key).clonned();
     //  TODO: check if it is responsible for the given key, if not forward the request to the correct node
@@ -238,8 +238,8 @@ fn put_storage(
     let hash_slice: [u8; 2] = [hashed[0], hashed[1]];
     let hashed_location: u16 = u16::from_be_bytes(hash_slice);
 
-    println!("Hashed value: {:?}\n", hashed);
-    println!("Hashed location: {:?}\n", hashed_location);
+    // println!("Hashed value: {:?}\n", hashed);
+    // println!("Hashed location: {:?}\n", hashed_location);
 
     // Special case for range wrapping circle
     if RING_SIZE - config.local.position < config.local.range {
