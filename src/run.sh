@@ -90,7 +90,7 @@ do
                 echo "Joining node to previous node."
                 curl -v -X "PUT" -H "Content-Type: application/json" --data "{\"hostname\": \"$previous_node\", \"port\":$previous_port}" "http://$node:$port/network/join"
             fi
-            deployed_nodes_count=deployed_nodes_count+1
+            deployed_nodes_count=$deployed_nodes_count+1
         fi
     done
 done
