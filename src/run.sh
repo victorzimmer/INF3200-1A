@@ -82,7 +82,7 @@ do
             deployed_services+=("$node:$port")
             remaining_node_count=$((remaining_node_count-1))
 
-            if [ deployed_nodes_count -eq 0 ]
+            if [ $deployed_nodes_count -eq 0 ]
             then
                 echo "Initializing network on first node."
                 curl -v -X "PUT" -H "Content-Type: application/json" --data "{\"network_id\": \"chord-network\"}" "http://$node:$port/network/initialize"
@@ -90,6 +90,7 @@ do
                 echo "Joining node to previous node."
                 curl -v -X "PUT" -H "Content-Type: application/json" --data "{\"hostname\": \"$previous_node\", \"port\":$previous_port}" "http://$node:$port/network/join"
             fi
+            deployed_nodes_count=deployed_nodes_count+1
         fi
     done
 done
