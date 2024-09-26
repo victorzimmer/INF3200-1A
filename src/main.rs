@@ -73,23 +73,16 @@ struct LongestRangeResponse {
     holder: Node,
 }
 
-// // function that takes in a key (as a string) and returns a int (u64)
-// fn hash(key: &str) -> u64 {
-//     let mut hasher = Sha256::new(); // create a new Sha256 - 256 byte (32-bytes) hash
-//     hasher.update(key); // update the hasher with the key
-//     let result = hasher.finalize(); // finalize the hasher and store the result in the variable result
-// }
+fn shortest_distance_on_circumference(p1: u16, p2: u16) -> i32 {
+    let forwards_distance = p2 - p1;
+    let backwards_distance = (RING_SIZE - p2) + p1;
 
-// fn shortest_distance_on_circumference(p1: u32, p2: u32) -> i32 {
-//     let forwards_distance = p2 - p1;
-//     let backwards_distance = (CHORD_RING_SIZE - p2) + p1;
-
-//     if (forwards_distance < backwards_distance) {
-//         return forwards_distance.into();
-//     } else {
-//         return -backwards_distance;
-//     }
-// }
+    if (forwards_distance < backwards_distance) {
+        return forwards_distance.into();
+    } else {
+        return -i32::from(backwards_distance);
+    }
+}
 
 // end-point to test if the server is running
 #[get("/helloworld")]
@@ -164,19 +157,22 @@ fn get_storage(
     // Early returns for cases where key is under over jurisdiction, so if we get here we need to forward the request
     println!("Forwarding request!");
 
+    let forward_node =
+        if shortest_distance_on_circumference(config.local.position, hashed_location) < 0 {
+            config
+                .precessor
+                .as_ref()
+                .expect("Could not forward, node has no successor")
+        } else {
+            config
+                .successor
+                .as_ref()
+                .expect("Could not forward, node has no successor")
+        };
+
     let forward_request_uri = format!(
         "http://{}:{}/storage/{}",
-        config
-            .successor
-            .as_ref()
-            .expect("Could not forward, node has no successor")
-            .hostname,
-        config
-            .successor
-            .as_ref()
-            .expect("Could not forward, node has no successor")
-            .port,
-        key
+        forward_node.hostname, forward_node.port, key
     );
 
     let forward_request_response = match minreq::get(forward_request_uri).send() {
@@ -261,19 +257,22 @@ fn put_storage(
     // Early returns for cases where key is under over jurisdiction, so if we get here we need to forward the request
     println!("Forwarding request!");
 
+    let forward_node =
+        if shortest_distance_on_circumference(config.local.position, hashed_location) < 0 {
+            config
+                .precessor
+                .as_ref()
+                .expect("Could not forward, node has no successor")
+        } else {
+            config
+                .successor
+                .as_ref()
+                .expect("Could not forward, node has no successor")
+        };
+
     let forward_request_uri = format!(
         "http://{}:{}/storage/{}",
-        config
-            .successor
-            .as_ref()
-            .expect("Could not forward, node has no successor")
-            .hostname,
-        config
-            .successor
-            .as_ref()
-            .expect("Could not forward, node has no successor")
-            .port,
-        key
+        forward_node.hostname, forward_node.port, key
     );
 
     let forward_request_response = match minreq::put(forward_request_uri)
