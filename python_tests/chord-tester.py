@@ -77,7 +77,7 @@ def put_value(node, key, value):
     conn = None
     try:
         conn = http.client.HTTPConnection(node)
-        conn.request("PUT", "/storage/"+key, value)
+        conn.request("PUT", "/storage/"+key, value, {"Content-Type":"text/plain"})
         conn.getresponse()
     finally:
         if conn:
