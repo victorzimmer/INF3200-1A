@@ -6,3 +6,4 @@
 
 Cargo.lock
 .zed/settings.json
+/target 2
