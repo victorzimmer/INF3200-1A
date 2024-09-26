@@ -20,7 +20,7 @@ if [ -f "run-node.sh" ]; then
    echo "run-node.sh already present."
 else
    echo "Downloading run-node.sh..."
-   wget -q "https://raw.githubusercontent.com/victorzimmer/INF3200-1A/master/src/run-node.sh"
+   wget -q "https://raw.githubusercontent.com/SeraMadeleine/INF3200-1B/refs/heads/master/src/run-node.sh"
    echo "Downloaded run-node.sh."
 fi
 
