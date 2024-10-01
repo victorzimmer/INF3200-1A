@@ -191,7 +191,7 @@ fn get_storage(
         ));
     } else if forward_request_response.status_code != 200 {
         let error_message = format!(
-            "Precessor denied setting successor. Node responded: [{} - {}] {}",
+            "Forward node denied request. Node responded: [{} - {}] {}",
             forward_request_response.status_code,
             forward_request_response.reason_phrase,
             forward_request_response
@@ -290,7 +290,7 @@ fn put_storage(
 
     if forward_request_response.status_code != 200 {
         let error_message = format!(
-            "Precessor denied setting successor. Node responded: [{} - {}] {}",
+            "Forward node denied request. Node responded: [{} - {}] {}",
             forward_request_response.status_code,
             forward_request_response.reason_phrase,
             forward_request_response
@@ -595,6 +595,8 @@ fn put_network_join(
     node_config: &State<Arc<RwLock<NodeConfig>>>,
     existing_node: Json<SuppliedNode>,
 ) -> Result<String, Custom<String>> {
+    let mut config = node_config.write().expect("RWLock is poisoned");
+
     let join_uri = format!(
         "http://{}:{}/network/request_join_network_information",
         existing_node.0.hostname, existing_node.0.port
@@ -673,8 +675,6 @@ fn put_network_join(
         }
         Ok(parsed) => parsed,
     };
-
-    let mut config = node_config.write().expect("RWLock is poisoned");
 
     config.connected = true;
     config.network = Some(received_network_information.network.clone());
