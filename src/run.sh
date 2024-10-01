@@ -104,8 +104,9 @@ do
     done
 done
 
-for node_service in deployed_services; do
-    curl -v -X "PUT" -H "Content-Type: application/json" --data "{\"size\": $finger_table_size" "http://$node_service/ring/calculate_finger_table"
+
+for service in "${deployed_services[@]}"; do
+    curl -v -X "PUT" -H "Content-Type: application/json" --data "{\"size\": $finger_table_size" "http://$service/ring/calculate_finger_table"
 done
 
 
