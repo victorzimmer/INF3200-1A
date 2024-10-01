@@ -73,11 +73,17 @@ struct LongestRangeResponse {
     holder: Node,
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(crate = "rocket::serde")]
+struct FingerTableInformation {
+    size: u16,
+}
+
 fn shortest_distance_on_circumference(p1: u16, p2: u16) -> i32 {
     let forwards_distance = p2 - p1;
     let backwards_distance = (RING_SIZE - p2) + p1;
 
-    if (forwards_distance < backwards_distance) {
+    if forwards_distance < backwards_distance {
         return forwards_distance.into();
     } else {
         return -i32::from(backwards_distance);
@@ -352,10 +358,69 @@ fn get_finger_table(node_config: &State<Arc<RwLock<NodeConfig>>>) -> Json<Vec<No
     return Json(node_config.read().unwrap().finger_table.clone());
 }
 
-#[get("/ring/calculate_fingertable")]
-fn calculate_finger_table() -> () {
+#[put("/ring/calculate_fingertable", data="<finger_table_info>")]
+fn calculate_finger_table(node_config: &State<Arc<RwLock<NodeConfig>>>, finger_table_info: Json<FingerTableInformation>) -> Result<String, Custom<String>> {
+    let mut config = node_config.write().expect("RWLock is poisoned");
     println!("Calculate finger table");
-    todo!();
+
+    // Add local node to finger table, and all other nodes in the network
+    let mut complete_node_list = vec![config.local.clone()];
+
+    let mut current_node = config.successor.clone().expect("No successor");
+
+    while current_node.hostname != config.local.hostname &&  current_node.port != config.local.port {
+        complete_node_list.push(current_node.clone());
+
+        let get_successor_uri = format!(
+            "http://{}:{}/ring/successor",
+            current_node.hostname, current_node.port
+        );
+
+        let get_successor_response = match minreq::get(get_successor_uri).send() {
+            Err(_err) => {
+                let error_message = String::from("Could not connect to node to get successor.");
+                println!("{}", &error_message);
+                return Err(status::Custom(Status::FailedDependency, error_message));
+            }
+            Ok(response) => response,
+        };
+
+        if get_successor_response.status_code != 200 {
+            let error_message = format!(
+                "Node denied request for successor. Node responded: [{} - {}] {}",
+                get_successor_response.status_code,
+                get_successor_response.reason_phrase,
+                get_successor_response
+                    .as_str()
+                    .unwrap_or("Unparseable content")
+            );
+            println!("{}", &error_message);
+            return Err(status::Custom(Status::FailedDependency, error_message));
+        }
+
+        current_node = match get_successor_response.json::<Node>() {
+            Err(_err) => {
+                let error_message =
+                    String::from("Unable to parse received network information from JSON.");
+                println!("{}", &error_message);
+                return Err(status::Custom(Status::FailedDependency, error_message));
+            }
+            Ok(parsed) => parsed,
+        };
+    }
+
+    // calculate finger table based on size 
+
+    for i in 1..complete_node_list.len() - 1 {
+        if u16::try_from(i).expect("finger-table to large") % finger_table_info.size == 0 {
+            
+        }
+
+        config.finger_table.push(complete_node_list[i].clone());
+    }
+
+    return Ok(String::from("Finger table calculated"));
+
 }
 
 // Endpoint to get information about the network
