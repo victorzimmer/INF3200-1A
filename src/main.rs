@@ -16,7 +16,7 @@ use storage::Storage;
 const RING_SIZE: u16 = u16::MAX; // Maximum size of the ring, and thereby maximum number of nodes supported
 
 // Node represent a node in the cluster
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(crate = "rocket::serde")]
 struct Node {
     hostname: String,
@@ -80,8 +80,8 @@ struct FingerTableInformation {
 }
 
 fn shortest_distance_on_circumference(p1: u16, p2: u16) -> i32 {
-    let forwards_distance = p2 - p1;
-    let backwards_distance = (RING_SIZE - p2) + p1;
+    let forwards_distance = i32::from(p2) - i32::from(p1);
+    let backwards_distance = (i32::from(RING_SIZE) - i32::from(p2)) + i32::from(p1);
 
     if forwards_distance < backwards_distance {
         return forwards_distance.into();
@@ -162,8 +162,9 @@ fn get_storage(
 
     // Early returns for cases where key is under over jurisdiction, so if we get here we need to forward the request
     println!("Forwarding request!");
+    let mut forward_node_distance = shortest_distance_on_circumference(config.local.position, hashed_location).abs();
 
-    let forward_node =
+    let mut forward_node =
         if shortest_distance_on_circumference(config.local.position, hashed_location) < 0 {
             config
                 .precessor
@@ -175,6 +176,16 @@ fn get_storage(
                 .as_ref()
                 .expect("Could not forward, node has no successor")
         };
+
+    // See if the key is closer to any node in the finger table
+    if config.finger_table.len() > 0 {
+        for node in config.finger_table.iter() {
+            if shortest_distance_on_circumference(node.position, hashed_location).abs() < forward_node_distance {
+                forward_node = node;
+                forward_node_distance = shortest_distance_on_circumference(node.position, hashed_location).abs();
+            }
+        }
+    }
 
     let forward_request_uri = format!(
         "http://{}:{}/storage/{}",
@@ -263,7 +274,9 @@ fn put_storage(
     // Early returns for cases where key is under over jurisdiction, so if we get here we need to forward the request
     println!("Forwarding request!");
 
-    let forward_node =
+    let mut forward_node_distance = shortest_distance_on_circumference(config.local.position, hashed_location).abs();
+
+    let mut forward_node =
         if shortest_distance_on_circumference(config.local.position, hashed_location) < 0 {
             config
                 .precessor
@@ -275,6 +288,16 @@ fn put_storage(
                 .as_ref()
                 .expect("Could not forward, node has no successor")
         };
+    
+        // See if the key is closer to any node in the finger table
+    if config.finger_table.len() > 0 {
+        for node in config.finger_table.iter() {
+            if shortest_distance_on_circumference(node.position, hashed_location).abs() < forward_node_distance {
+                forward_node = node;
+                forward_node_distance = shortest_distance_on_circumference(node.position, hashed_location).abs();
+            }
+        }
+    }
 
     let forward_request_uri = format!(
         "http://{}:{}/storage/{}",
@@ -358,18 +381,24 @@ fn get_finger_table(node_config: &State<Arc<RwLock<NodeConfig>>>) -> Json<Vec<No
     return Json(node_config.read().unwrap().finger_table.clone());
 }
 
-#[put("/ring/calculate_fingertable", data="<finger_table_info>")]
+#[put("/ring/calculate_finger_table", data="<finger_table_info>")]
 fn calculate_finger_table(node_config: &State<Arc<RwLock<NodeConfig>>>, finger_table_info: Json<FingerTableInformation>) -> Result<String, Custom<String>> {
     let mut config = node_config.write().expect("RWLock is poisoned");
     println!("Calculate finger table");
 
+    config.finger_table.clear();
+
     // Add local node to finger table, and all other nodes in the network
     let mut complete_node_list = vec![config.local.clone()];
-
     let mut current_node = config.successor.clone().expect("No successor");
 
-    while current_node.hostname != config.local.hostname &&  current_node.port != config.local.port {
+    
+    // println!("Local node: {}:{}", config.local.hostname, config.local.port);
+    // println!("Current node: {}:{}", current_node.hostname, current_node.port);
+    while current_node.hostname != config.local.hostname ||  current_node.port != config.local.port {
+        // println!("Adding node: {}:{}", current_node.hostname, current_node.port);
         complete_node_list.push(current_node.clone());
+        // println!("Complete list {:?}", complete_node_list);
 
         let get_successor_uri = format!(
             "http://{}:{}/ring/successor",
@@ -409,15 +438,28 @@ fn calculate_finger_table(node_config: &State<Arc<RwLock<NodeConfig>>>, finger_t
         };
     }
 
-    // calculate finger table based on size 
-
-    for i in 1..complete_node_list.len() - 1 {
-        if u16::try_from(i).expect("finger-table to large") % finger_table_info.size == 0 {
-            
-        }
-
-        config.finger_table.push(complete_node_list[i].clone());
+    if complete_node_list.len() < usize::from(finger_table_info.size) {
+        let error_message = String::from("Not enough nodes in network to calculate finger table.");
+        println!("{}", &error_message);
+        return Err(status::Custom(Status::BadRequest, error_message));
+    } else if complete_node_list.len() == usize::from(finger_table_info.size) {
+        println!("Creating fully connected finger table, with all nodes in network.");
     }
+
+    println!("Node list length: {}", complete_node_list.len());
+
+    let size = usize::from(finger_table_info.size);
+    if size == 0 || size > complete_node_list.len() {
+        panic!("Finger table size cannot be zero or greater than the number of nodes.");
+    }
+
+    let step = complete_node_list.len() / size;
+    for i in 0..size {
+        let index = (i * step) % complete_node_list.len();
+        println!("Adding node: {}", index);
+        config.finger_table.push(complete_node_list[index].clone());
+    }
+
 
     return Ok(String::from("Finger table calculated"));
 

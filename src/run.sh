@@ -4,7 +4,7 @@ regex_positive_integer="^[0-9]+$"  # regex for positive integer
 
 # See if an argument is provided
 if [ -z "$1" ]; then  # -z checks if the variable is empty
-    echo "No argument provided, please provide the number of servers to start: $0 <number_of_servers>"
+    echo "No argument provided, please provide the number of servers to start: $0 <number_of_servers> [size of finger table (default 0)]"
     exit 1
 fi
 
@@ -12,6 +12,16 @@ fi
 if ! [[ "$1" =~ $regex_positive_integer ]]; then
     echo "The argument provided is not an integer, please provide an integer value: $0 <number_of_servers>"
     exit 1
+fi
+
+
+
+finger_table_size=0
+# See if the argument is an integer
+if ! [[ "$2" =~ $regex_positive_integer ]]; then
+    finger_table_size=0
+else
+    finger_table_size=$2
 fi
 
 
@@ -74,9 +84,6 @@ do
             (echo "nodename=$node port=$port"; cat run-node.sh) | ssh $node /bin/bash
 
             sleep 1
-            # TODO: add precessor and successor, might look something like this curl http://$node:$port/setup/precessor -d SOME_DATA
-
-            # TODO: calculate finger table
 
             echo "Started server on node: $node:$port"
             deployed_services+=("$node:$port")
@@ -95,6 +102,10 @@ do
             previous_port=$port
         fi
     done
+done
+
+for node_service in deployed_services; do
+    curl -v -X "PUT" -H "Content-Type: application/json" --data "{\"size\": $finger_table_size" "http://$node_service/ring/calculate_finger_table"
 done
 
 
