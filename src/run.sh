@@ -106,6 +106,7 @@ done
 
 
 for service in "${deployed_services[@]}"; do
+    echo "{\"size\": $finger_table_size}"
     curl -v -X "PUT" -H "Content-Type: application/json" --data "{\"size\": $finger_table_size}" "http://$service/ring/calculate_finger_table"
 done
 
