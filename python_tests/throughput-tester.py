@@ -34,7 +34,7 @@ if __name__ == "__main__":
 
         run_script_output = os.popen(f"sh ../src/run.sh {node_count} {finger_table_size}").read()
         run_script_json_list_match = re.search("\\[\\\".*\\\"\\]", run_script_output)
-        run_script_json_list = run_script_json_list_match.string
+        run_script_json_list = run_script_json_list_match.group()
 
         print(f"Debug, output from run script: {run_script_json_list} EOS")
         deployed_nodes = json.loads(run_script_json_list)
