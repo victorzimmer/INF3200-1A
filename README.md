@@ -1,40 +1,64 @@
-# 3200-1B
+Here's an improved version of your README file, with enhanced clarity, formatting, and structure:
 
-## Assignment 1A for INF-3200
+---
 
-The HTTP server is implemented in Rust and replies to a single endpoint, `/helloworld`. The response is a combination of the configured Hostname and Port, provided by the environment variables `A1_HOSTNAME` and `A1_PORT`.
+# INF-3200, Assignment 1B  
+## Overview 
+This project is an implementation of a distributed key-value store, using a Chord-like Distributed Hash Table (DHT) as part of the INF-3200 Distributed Systems Fundamentals course. The system supports deploying multiple nodes in a network and distributing key-value pairs across them.
+
+## Implementation Details
+
+- The project is written in **Rust**.
+- Core server logic is implemented in `main.rs`.
+- Key-value storage operations are handled by the `Storage` struct located in `storage.rs`.
+- `run-node.sh` script is used to deploy individual nodes.
+- `run.sh` orchestrates the deployment of multiple nodes and configures the Chord-like network.
 
 ## Deployment
 
-The server is ready for both containerized deployment and binary distribution for Linux (x86_64) and macOS (aarch64).
+The server can be deployed in a **containerized environment** or distributed as a **binary** for Linux (x86_64) and macOS (aarch64) platforms.
 
-## Downloading
+## Setup and Downloading
 
-1. Log in to the cluster.
-2. To download the script, run the following on the cluster:
+1. **Log in to the cluster** where you intend to deploy the system.
+2. **Download the script** by running the following commands:
 
    ```bash
-   wget https://raw.githubusercontent.com/victorzimmer/INF3200-1A/master/src/run.sh
-
+   wget https://raw.githubusercontent.com/SeraMadeleine/INF3200-1B/master/src/run.sh
    chmod 552 run.sh
    ```
 
-## Running
+## Running the System
 
-1. Log in to the cluster.
-2. Run the following command:
+1. **Run the deployment script**:
+
    ```bash
-   ./run.sh <number of nodes>
+   ./run.sh <number_of_nodes> [size_of_finger_table]
    ```
-3. Test with th python script
+
+   - `<number_of_nodes>`: The number of distributed nodes to deploy.
+   - `[size_of_finger_table]` (optional): The size of the finger table used in the Chord DHT. If not provided, it defaults to 0.
+
+2. After the script runs, it will output a **JSON array** containing the deployed services (node:port pairs).
+
+
+## Testing 
+To test the distributed key-value store, use the provided Python test script located in the `src` directory:
+
+1. Navigate to the `src` directory.
+2. Run the test script:
+
    ```bash
-   python3 testscript.py '<output from run.sh>'
+   python3 testscript.py '<output_from_run.sh>'
    ```
-4. Clean up by running
+
+   - The script will validate the functionality of the deployed nodes.
+
+## Clean-up
+
+After completing the tasks, **clean up** the cluster by running the following command:
+
    ```bash
    /share/ifi/cleanup.sh
    ```
 
-### Note:
-
-Since the program picks ports at random, there is always a small chance that you may experience that the port number is already in use. If this happen, try again.
