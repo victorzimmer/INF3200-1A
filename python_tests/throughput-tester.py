@@ -16,8 +16,6 @@ def test_throughput(nodes):
 
     startTime = time.time()
     for (key,value) in key_value_to_test:
-        urllib.request.urlopen(f"http://{random.choice(nodes)}/put").read()
-
         req = urllib.request.Request(url = f"http://{random.choice(nodes)}/storage/{key}", data = bytes(str(value).encode("utf-8")), method = "PUT")
         req.add_header("Content-type", "application/json; charset=UTF-8")
         urllib.request.urlopen(req)
