@@ -23,10 +23,13 @@ def test_throughput(nodes):
 
     for (key,value) in key_value_to_test:
         response = urllib.request.urlopen(f"http://{random.choice(nodes)}/storage/{key}").read()
+
         if response.decode("utf-8") == value:
             successCounter += 1
+            print(f"{response.decode("utf-8")} == {value}")
         else:
             failureCounter += 1
+            print(f"{response.decode("utf-8")} != {value}")
     endTime = time.time()
 
     return {"timeTaken": endTime - startTime, "successes": successCounter, "failures": failureCounter}
