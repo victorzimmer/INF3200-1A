@@ -13,6 +13,7 @@ def test_throughput(nodes):
 
 def shutdown_nodes(nodes):
     for node in nodes:
+        print(f"Shutting down node: {node}")
         response = urllib.request.urlopen(f"http://{node}/shutdown").read()
 
 
