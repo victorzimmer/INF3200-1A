@@ -1,10 +1,7 @@
-Here's an improved version of your README file, with enhanced clarity, formatting, and structure:
-
----
-
 # INF-3200, Assignment 1B  
+
 ## Overview 
-This project is an implementation of a distributed key-value store, using a Chord-like Distributed Hash Table (DHT) as part of the INF-3200 Distributed Systems Fundamentals course. The system supports deploying multiple nodes in a network and distributing key-value pairs across them.
+This project is an implementation of a distributed key-value store using a Chord-like Distributed Hash Table (DHT), as part of the INF-3200 Distributed Systems Fundamentals course. The system supports deploying multiple nodes in a network and distributing key-value pairs across them.
 
 ## Implementation Details
 
@@ -41,8 +38,8 @@ The server can be deployed in a **containerized environment** or distributed as 
 
 2. After the script runs, it will output a **JSON array** containing the deployed services (node:port pairs).
 
-
 ## Testing 
+### Running Basic Tests
 To test the distributed key-value store, use the provided Python test script located in the `src` directory:
 
 1. Navigate to the `src` directory.
@@ -54,9 +51,19 @@ To test the distributed key-value store, use the provided Python test script loc
 
    - The script will validate the functionality of the deployed nodes.
 
-## Clean-up
+### Testing with Specific Node Configurations
+You can also test the system with a specific node configuration, including varying node sizes and finger table sizes. For example:
+
+   ```bash
+   python3 throughput-tester.py '[[8,0], [8,2], [8,4]]'
+   ```
+
+   - This command tests the system with 8 nodes and finger table sizes of 0, 2, and 4.
+
+### Clean-up
 
 After completing the tasks, **clean up** the cluster by running the following command:
+Note, you do not need to fo this if you only used the throughput-tester since it does it for you. 
 
    ```bash
    /share/ifi/cleanup.sh
