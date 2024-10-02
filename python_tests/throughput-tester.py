@@ -63,7 +63,7 @@ if __name__ == "__main__":
         deployed_nodes = json.loads(run_script_json_list)
         test_results.append(test_throughput(deployed_nodes))
 
-        shutdown_nodes(deployed_nodes)
+        shutdown_nodes({"test": test, "result": deployed_nodes})
 
     print("Tests done!")
     print(test_results)
