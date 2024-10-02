@@ -23,6 +23,7 @@ def test_throughput(nodes):
 
     for (key,value) in key_value_to_test:
         response = urllib.request.urlopen(f"http://{random.choice(nodes)}/storage/{key}").read()
+        print(f"{response} == {value}")
         if response == value:
             successCounter += 1
         else:
