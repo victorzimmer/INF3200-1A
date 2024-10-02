@@ -31,8 +31,10 @@ if __name__ == "__main__":
         node_count = test[0]
         finger_table_size = test[1]
 
-        deployed_nodes = json.loads(os.popen(f"sh ../src/run.sh {node_count} {finger_table_size}").read())
+        run_script_output = os.popen(f"sh ../src/run.sh {node_count} {finger_table_size}").read()
 
+        print(run_script_output)
+        deployed_nodes = json.loads(run_script_output)
         test_results.append(test_throughput(deployed_nodes))
 
         shutdown_nodes(deployed_nodes)
