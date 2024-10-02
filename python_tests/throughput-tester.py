@@ -41,3 +41,6 @@ if __name__ == "__main__":
         test_results.append(test_throughput(deployed_nodes))
 
         shutdown_nodes(deployed_nodes)
+
+    print("Tests done!")
+    print(test_results)
