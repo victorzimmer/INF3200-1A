@@ -33,7 +33,7 @@ if __name__ == "__main__":
 
         run_script_output = os.popen(f"sh ../src/run.sh {node_count} {finger_table_size}").read()
 
-        print(run_script_output)
+        print(f"Debug, output from run script: {run_script_output} EOS")
         deployed_nodes = json.loads(run_script_output)
         test_results.append(test_throughput(deployed_nodes))
 
