@@ -1,66 +1,64 @@
-import os
 import matplotlib.pyplot as plt
+import numpy as np
 
-# Function to save plots
 def save_plot(plt, filename):
-    if not os.path.exists('plot'):
-        os.makedirs('plot')
-    plt.savefig('plot/' + filename, dpi=300, bbox_inches='tight', format='pdf')
+    plt.savefig(f'plot/{filename}', dpi=300, bbox_inches='tight', format='pdf')
 
-
-# Data for combined plot of PUT and GET times (without finger table)
-combined_results = [
-    {'nodes': 1, 'finger': 0, 'putTimeTaken': 1.1913561820983887, 'getTimeTaken': 1.0813255310058594},
-    {'nodes': 2, 'finger': 0, 'putTimeTaken': 1.996854305267334, 'getTimeTaken': 1.814741611480713},
-    {'nodes': 4, 'finger': 0, 'putTimeTaken': 2.972432851791382, 'getTimeTaken': 2.7438085079193115},
-    {'nodes': 8, 'finger': 0, 'putTimeTaken': 5.442094087600708, 'getTimeTaken': 4.794665336608887},
-    {'nodes': 16, 'finger': 0, 'putTimeTaken': 9.121079444885254, 'getTimeTaken': 8.394300937652588}
+# Data for nodes without finger table
+no_finger_results = [
+    {'nodes': 1, 'put_avg': 0.7524369557698568, 'put_std': 0.038715487557135025, 'get_avg': 0.6256277561187744, 'get_std': 0.00815975426550072},
+    {'nodes': 2, 'put_avg': 1.7496532599131267, 'put_std': 0.01514530215204883, 'get_avg': 1.6585612297058105, 'get_std': 0.029257478264029836},
+    {'nodes': 4, 'put_avg': 2.9722142219543457, 'put_std': 0.06310756044801792, 'get_avg': 2.806232531865438, 'get_std': 0.0636876141629717},
+    {'nodes': 8, 'put_avg': 4.841251770655314, 'put_std': 0.11447038638841359, 'get_avg': 4.549646059672038, 'get_std': 0.0826532287334393},
+    {'nodes': 16, 'put_avg': 12.935950676600138, 'put_std': 7.663110839341131, 'get_avg': 6.878310600916545, 'get_std': 0.09154756668078251}
 ]
 
 # Extract data for plotting
-nodes = [entry['nodes'] for entry in combined_results]
-put_times = [entry['putTimeTaken'] for entry in combined_results]
-get_times = [entry['getTimeTaken'] for entry in combined_results]
+nodes = [entry['nodes'] for entry in no_finger_results]
+put_times = [entry['put_avg'] for entry in no_finger_results]
+put_stds = [entry['put_std'] for entry in no_finger_results]
+get_times = [entry['get_avg'] for entry in no_finger_results]
+get_stds = [entry['get_std'] for entry in no_finger_results]
 
-# Plot combined PUT and GET times for different node counts
+# Plot PUT and GET times for different node counts
 plt.figure(figsize=(10, 6))
-plt.plot(nodes, put_times, marker='o', color='blue', label='PUT Time')
-plt.plot(nodes, get_times, marker='o', color='green', label='GET Time')
+plt.errorbar(nodes, put_times, yerr=put_stds, marker='o', color='orange', label='PUT', capsize=5)
+plt.errorbar(nodes, get_times, yerr=get_stds, marker='o', color='blue', label='GET', capsize=5)
 plt.title('PUT and GET Operation Times for Different Node Counts (Finger-table size 0)')
-plt.xlabel('Number of Nodes')
-plt.ylabel('Time Taken (seconds)')
-plt.xticks(nodes)
+plt.xlabel('Number of nodes in network')
+plt.ylabel('Time (seconds)')
+plt.xscale('log', base=2)
+plt.xticks(nodes, labels=nodes)
 plt.grid(True)
 plt.legend()
 
 save_plot(plt, 'put_get_times_vs_nodes_without_finger_table.pdf')
-# plt.show()
-
 
 # Data for 16 nodes with different finger table sizes
-finger_results_16_nodes = [
-    {'finger': 0, 'putTimeTaken': 9.41819977760315, 'getTimeTaken': 8.946151733398438},
-    {'finger': 2, 'putTimeTaken': 5.827919244766235, 'getTimeTaken': 5.710876941680908},
-    {'finger': 4, 'putTimeTaken': 4.324400186538696, 'getTimeTaken': 4.0490992069244385},
-    {'finger': 6, 'putTimeTaken': 3.925969123840332, 'getTimeTaken': 3.7314555644989014},
-    {'finger': 8, 'putTimeTaken': 3.92924427986145, 'getTimeTaken': 3.7061362266540527}
+finger_results = [
+    {'finger': 0, 'put_avg': 9.727128823598227, 'put_std': 0.24937378864760984, 'get_avg': 8.968641916910807, 'get_std': 0.038643329111794224},
+    {'finger': 2, 'put_avg': 6.36955205599467, 'put_std': 0.06951057331176141, 'get_avg': 5.978910128275554, 'get_std': 0.10088526026373933},
+    {'finger': 4, 'put_avg': 4.421700795491536, 'put_std': 0.047840331763432345, 'get_avg': 4.0844349066416425, 'get_std': 0.025710102112591657},
+    {'finger': 6, 'put_avg': 4.369396527608235, 'put_std': 0.03211150621159705, 'get_avg': 4.111806710561116, 'get_std': 0.03154388183680087},
+    {'finger': 8, 'put_avg': 4.009881019592285, 'put_std': 0.0331916351896988, 'get_avg': 3.7238598664601645, 'get_std': 0.04343130067673035}
 ]
 
 # Extract data for plotting for 16 nodes
-finger_sizes = [entry['finger'] for entry in finger_results_16_nodes]
-put_times_16 = [entry['putTimeTaken'] for entry in finger_results_16_nodes]
-get_times_16 = [entry['getTimeTaken'] for entry in finger_results_16_nodes]
+finger_sizes = [entry['finger'] for entry in finger_results]
+put_times_16 = [entry['put_avg'] for entry in finger_results]
+put_stds_16 = [entry['put_std'] for entry in finger_results]
+get_times_16 = [entry['get_avg'] for entry in finger_results]
+get_stds_16 = [entry['get_std'] for entry in finger_results]
 
 # Plot PUT and GET times for 16 nodes with different finger table sizes
 plt.figure(figsize=(10, 6))
-plt.plot(finger_sizes, put_times_16, marker='o', color='blue', label='PUT Time')
-plt.plot(finger_sizes, get_times_16, marker='o', color='green', label='GET Time')
+plt.errorbar(finger_sizes, put_times_16, yerr=put_stds_16, marker='o', color='orange', label='PUT', capsize=5)
+plt.errorbar(finger_sizes, get_times_16, yerr=get_stds_16, marker='o', color='blue', label='GET', capsize=5)
 plt.title('PUT and GET Operation Times for 16 Nodes with Different Finger-table Sizes')
-plt.xlabel('Finger-table Size')
-plt.ylabel('Time Taken (seconds)')
+plt.xlabel('Finger table size')
+plt.ylabel('Time (seconds)')
 plt.xticks(finger_sizes)
 plt.grid(True)
 plt.legend()
 
 save_plot(plt, 'put_get_times_vs_finger_table_size_16_nodes.pdf')
-# plt.show()
