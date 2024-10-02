@@ -16,7 +16,7 @@ def test_throughput(nodes):
 
     startTime = time.time()
     for (key,value) in key_value_to_test:
-        print(f"http://{random.choice(nodes)}/storage/{key}")
+        # print(f"http://{random.choice(nodes)}/storage/{key}")
         req = urllib.request.Request(url = f"http://{random.choice(nodes)}/storage/{key}", data = bytes(str(value).encode("utf-8")), method = "PUT")
         req.add_header("Content-type", "text/plain")
         urllib.request.urlopen(req)
@@ -61,9 +61,9 @@ if __name__ == "__main__":
 
         print(f"Debug, output from run script: {run_script_json_list} EOS")
         deployed_nodes = json.loads(run_script_json_list)
-        test_results.append(test_throughput(deployed_nodes))
+        test_results.append({"test": test, "result": test_throughput(deployed_nodes)})
 
-        shutdown_nodes({"test": test, "result": deployed_nodes})
+        shutdown_nodes(deployed_nodes)
 
     print("Tests done!")
     print(test_results)
