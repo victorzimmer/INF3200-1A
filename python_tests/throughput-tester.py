@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 import json
 import time
@@ -32,9 +33,11 @@ if __name__ == "__main__":
         finger_table_size = test[1]
 
         run_script_output = os.popen(f"sh ../src/run.sh {node_count} {finger_table_size}").read()
+        run_script_json_list_match = re.search("\\[\\\".*\\\"\\]", run_script_output)
+        run_script_json_list = run_script_json_list_match.string
 
-        print(f"Debug, output from run script: {run_script_output} EOS")
-        deployed_nodes = json.loads(run_script_output)
+        print(f"Debug, output from run script: {run_script_json_list} EOS")
+        deployed_nodes = json.loads(run_script_json_list)
         test_results.append(test_throughput(deployed_nodes))
 
         shutdown_nodes(deployed_nodes)
