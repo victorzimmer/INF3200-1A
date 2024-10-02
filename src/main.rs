@@ -107,27 +107,16 @@ fn get_storage(
     key: &str,
 ) -> Result<String, Custom<String>> {
     let config = node_config.read().expect("RWLock is poisoned");
-    // println!("Get storage, key: {}", key);
-    // let node = a1_config.node.lock().unwrap();
-    // node.data.lock().unwrap().get(key).clonned();
-    //  TODO: check if it is responsible for the given key, if not forward the request to the correct node
 
     // We use the hasher to hash the given key
     let mut hasher = Sha1::new();
     hasher.update(key.as_bytes());
     let hashed = hasher.finalize();
 
-    // Then the hash needs to be interpreted as a position on the ring.
-    // We could interpret the hash as a value in the range [0, 2^160] and use modulation to give a value in the range [0, RING_SIZE],
-    // however modulation is among the slower math operations and with a uniform hash there should be no difference between that and
-    // simply reading the first n bytes of the hash such that 2^n = RING_SIZE
-    //
+    
     // For our RING_SIZE = 2^16 = 65 536 that means reading the first two bytes of the hash and interpreting them as a u16.
     let hash_slice: [u8; 2] = [hashed[0], hashed[1]];
     let hashed_location: u16 = u16::from_be_bytes(hash_slice);
-
-    // println!("Hashed value: {:?}\n", hashed);
-    // println!("Hashed location: {:?}\n", hashed_location);
 
     // Special case for range wrapping circle
     if RING_SIZE - config.local.position < config.local.range {
@@ -236,27 +225,15 @@ fn put_storage(
     value: &str,
 ) -> Result<String, Custom<String>> {
     let config = node_config.read().expect("RWLock is poisoned");
-    // println!("Get storage, key: {}", key);
-    // let node = a1_config.node.lock().unwrap();
-    // node.data.lock().unwrap().get(key).clonned();
-    //  TODO: check if it is responsible for the given key, if not forward the request to the correct node
-
+    
     // We use the hasher to hash the given key
     let mut hasher = Sha1::new();
     hasher.update(key.as_bytes());
     let hashed = hasher.finalize();
 
-    // Then the hash needs to be interpreted as a position on the ring.
-    // We could interpret the hash as a value in the range [0, 2^160] and use modulation to give a value in the range [0, RING_SIZE],
-    // however modulation is among the slower math operations and with a uniform hash there should be no difference between that and
-    // simply reading the first n bytes of the hash such that 2^n = RING_SIZE
-    //
     // For our RING_SIZE = 2^16 = 65 536 that means reading the first two bytes of the hash and interpreting them as a u16.
     let hash_slice: [u8; 2] = [hashed[0], hashed[1]];
     let hashed_location: u16 = u16::from_be_bytes(hash_slice);
-
-    // println!("Hashed value: {:?}\n", hashed);
-    // println!("Hashed location: {:?}\n", hashed_location);
 
     // Special case for range wrapping circle
     if RING_SIZE - config.local.position < config.local.range {
@@ -407,12 +384,8 @@ fn calculate_finger_table(
     }
     let mut current_node = config.successor.clone().expect("No successor");
 
-    // println!("Local node: {}:{}", config.local.hostname, config.local.port);
-    // println!("Current node: {}:{}", current_node.hostname, current_node.port);
     while current_node.hostname != config.local.hostname || current_node.port != config.local.port {
-        // println!("Adding node: {}:{}", current_node.hostname, current_node.port);
         complete_node_list.push(current_node.clone());
-        // println!("Complete list {:?}", complete_node_list);
 
         let get_successor_uri = format!(
             "http://{}:{}/ring/successor",
