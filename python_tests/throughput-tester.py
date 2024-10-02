@@ -6,38 +6,54 @@ import json
 import time
 import random
 import urllib.request
+import numpy as np
 
+def test_throughput(nodes, num_runs=3):
+    key_value_to_test = [(uuid.uuid4(), uuid.uuid4()) for _ in range(1000)]
+    
+    put_times = []
+    get_times = []
 
-def test_throughput(nodes):
-    key_value_to_test = [(uuid.uuid4(), uuid.uuid4()) for i in range(0, 1000)]
+    for _ in range(num_runs):
+        # Measure PUT time
+        put_start_time = time.time()
+        for key, value in key_value_to_test:
+            req = urllib.request.Request(
+                url=f"http://{random.choice(nodes)}/storage/{key}", 
+                data=bytes(str(value).encode("utf-8")), 
+                method="PUT"
+            )
+            req.add_header("Content-type", "text/plain")
+            urllib.request.urlopen(req)
+        put_end_time = time.time()
+        put_times.append(put_end_time - put_start_time)
 
-    successCounter = 0
-    failureCounter = 0
+        # Measure GET time
+        success_counter = 0
+        failure_counter = 0
+        get_start_time = time.time()
+        for key, value in key_value_to_test:
+            response = urllib.request.urlopen(f"http://{random.choice(nodes)}/storage/{key}").read()
+            if response.decode("utf-8") == str(value):
+                success_counter += 1
+            else:
+                failure_counter += 1
+        get_end_time = time.time()
+        get_times.append(get_end_time - get_start_time)
 
-    # Mål tid for PUT operasjoner
-    put_start_time = time.time()
-    for (key, value) in key_value_to_test:
-        req = urllib.request.Request(url=f"http://{random.choice(nodes)}/storage/{key}", data=bytes(str(value).encode("utf-8")), method="PUT")
-        req.add_header("Content-type", "text/plain")
-        urllib.request.urlopen(req)
-    put_end_time = time.time()
+    # Calculate mean and standard deviation
+    put_avg = np.mean(put_times)
+    put_std = np.std(put_times)
+    get_avg = np.mean(get_times)
+    get_std = np.std(get_times)
 
-    # Mål tid for GET operasjoner
-    get_start_time = time.time()
-    for (key, value) in key_value_to_test:
-        response = urllib.request.urlopen(f"http://{random.choice(nodes)}/storage/{key}").read()
-        if response.decode("utf-8") == str(value):
-            successCounter += 1
-        else:
-            failureCounter += 1
-    get_end_time = time.time()
-
-    # Returner tidene separat for PUT og GET operasjoner
     return {
-        "putTimeTaken": put_end_time - put_start_time,
-        "getTimeTaken": get_end_time - get_start_time,
-        "successes": successCounter,
-        "failures": failureCounter
+        "put_avg": put_avg,
+        "put_std": put_std,
+        "get_avg": get_avg,
+        "get_std": get_std,
+        "successes": success_counter,
+        "failures": failure_counter
     }
 
 def shutdown_nodes(nodes):
