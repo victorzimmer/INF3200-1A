@@ -59,7 +59,8 @@ if __name__ == "__main__":
         run_script_json_list_match = re.search("\\[\\\".*\\\"\\]", run_script_output)
         run_script_json_list = run_script_json_list_match.group()
 
-        print(f"Debug, output from run script: {run_script_json_list} EOS")
+        # print(f"Debug, output from run script: {run_script_json_list} EOS")
+        print(f"Running test with {node_count} nodes and finger table size {finger_table_size}")
         deployed_nodes = json.loads(run_script_json_list)
         test_results.append({"test": test, "result": test_throughput(deployed_nodes)})
 
