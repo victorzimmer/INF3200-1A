@@ -162,7 +162,8 @@ fn get_storage(
 
     // Early returns for cases where key is under over jurisdiction, so if we get here we need to forward the request
     println!("Forwarding request!");
-    let mut forward_node_distance = shortest_distance_on_circumference(config.local.position, hashed_location).abs();
+    let mut forward_node_distance =
+        shortest_distance_on_circumference(config.local.position, hashed_location).abs();
 
     let mut forward_node =
         if shortest_distance_on_circumference(config.local.position, hashed_location) < 0 {
@@ -180,9 +181,12 @@ fn get_storage(
     // See if the key is closer to any node in the finger table
     if config.finger_table.len() > 0 {
         for node in config.finger_table.iter() {
-            if shortest_distance_on_circumference(node.position, hashed_location).abs() < forward_node_distance {
+            if shortest_distance_on_circumference(node.position, hashed_location).abs()
+                < forward_node_distance
+            {
                 forward_node = node;
-                forward_node_distance = shortest_distance_on_circumference(node.position, hashed_location).abs();
+                forward_node_distance =
+                    shortest_distance_on_circumference(node.position, hashed_location).abs();
             }
         }
     }
@@ -274,7 +278,8 @@ fn put_storage(
     // Early returns for cases where key is under over jurisdiction, so if we get here we need to forward the request
     println!("Forwarding request!");
 
-    let mut forward_node_distance = shortest_distance_on_circumference(config.local.position, hashed_location).abs();
+    let mut forward_node_distance =
+        shortest_distance_on_circumference(config.local.position, hashed_location).abs();
 
     let mut forward_node =
         if shortest_distance_on_circumference(config.local.position, hashed_location) < 0 {
@@ -288,13 +293,16 @@ fn put_storage(
                 .as_ref()
                 .expect("Could not forward, node has no successor")
         };
-    
-        // See if the key is closer to any node in the finger table
+
+    // See if the key is closer to any node in the finger table
     if config.finger_table.len() > 0 {
         for node in config.finger_table.iter() {
-            if shortest_distance_on_circumference(node.position, hashed_location).abs() < forward_node_distance {
+            if shortest_distance_on_circumference(node.position, hashed_location).abs()
+                < forward_node_distance
+            {
                 forward_node = node;
-                forward_node_distance = shortest_distance_on_circumference(node.position, hashed_location).abs();
+                forward_node_distance =
+                    shortest_distance_on_circumference(node.position, hashed_location).abs();
             }
         }
     }
@@ -381,8 +389,11 @@ fn get_finger_table(node_config: &State<Arc<RwLock<NodeConfig>>>) -> Json<Vec<No
     return Json(node_config.read().unwrap().finger_table.clone());
 }
 
-#[put("/ring/calculate_finger_table", data="<finger_table_info>")]
-fn calculate_finger_table(node_config: &State<Arc<RwLock<NodeConfig>>>, finger_table_info: Json<FingerTableInformation>) -> Result<String, Custom<String>> {
+#[put("/ring/calculate_finger_table", data = "<finger_table_info>")]
+fn calculate_finger_table(
+    node_config: &State<Arc<RwLock<NodeConfig>>>,
+    finger_table_info: Json<FingerTableInformation>,
+) -> Result<String, Custom<String>> {
     let mut config = node_config.write().expect("RWLock is poisoned");
     println!("Calculate finger table");
 
@@ -390,12 +401,15 @@ fn calculate_finger_table(node_config: &State<Arc<RwLock<NodeConfig>>>, finger_t
 
     // Add local node to finger table, and all other nodes in the network
     let mut complete_node_list = vec![config.local.clone()];
+    if !config.connected {
+        let error_message = String::from("Node is not connected to a network");
+        return Err(status::Custom(Status::FailedDependency, error_message));
+    }
     let mut current_node = config.successor.clone().expect("No successor");
 
-    
     // println!("Local node: {}:{}", config.local.hostname, config.local.port);
     // println!("Current node: {}:{}", current_node.hostname, current_node.port);
-    while current_node.hostname != config.local.hostname ||  current_node.port != config.local.port {
+    while current_node.hostname != config.local.hostname || current_node.port != config.local.port {
         // println!("Adding node: {}:{}", current_node.hostname, current_node.port);
         complete_node_list.push(current_node.clone());
         // println!("Complete list {:?}", complete_node_list);
@@ -460,9 +474,7 @@ fn calculate_finger_table(node_config: &State<Arc<RwLock<NodeConfig>>>, finger_t
         config.finger_table.push(complete_node_list[index].clone());
     }
 
-
     return Ok(String::from("Finger table calculated"));
-
 }
 
 // Endpoint to get information about the network
