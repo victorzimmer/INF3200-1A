@@ -9,29 +9,36 @@ import urllib.request
 
 
 def test_throughput(nodes):
-    key_value_to_test = [(uuid.uuid4(), uuid.uuid4()) for i in range(0,1000)]
+    key_value_to_test = [(uuid.uuid4(), uuid.uuid4()) for i in range(0, 1000)]
 
     successCounter = 0
     failureCounter = 0
 
-    startTime = time.time()
-    for (key,value) in key_value_to_test:
-        # print(f"http://{random.choice(nodes)}/storage/{key}")
-        req = urllib.request.Request(url = f"http://{random.choice(nodes)}/storage/{key}", data = bytes(str(value).encode("utf-8")), method = "PUT")
+    # Mål tid for PUT operasjoner
+    put_start_time = time.time()
+    for (key, value) in key_value_to_test:
+        req = urllib.request.Request(url=f"http://{random.choice(nodes)}/storage/{key}", data=bytes(str(value).encode("utf-8")), method="PUT")
         req.add_header("Content-type", "text/plain")
         urllib.request.urlopen(req)
+    put_end_time = time.time()
 
-    for (key,value) in key_value_to_test:
+    # Mål tid for GET operasjoner
+    get_start_time = time.time()
+    for (key, value) in key_value_to_test:
         response = urllib.request.urlopen(f"http://{random.choice(nodes)}/storage/{key}").read()
-
         if response.decode("utf-8") == str(value):
             successCounter += 1
         else:
             failureCounter += 1
-    endTime = time.time()
+    get_end_time = time.time()
 
-    return {"timeTaken": endTime - startTime, "successes": successCounter, "failures": failureCounter}
-
+    # Returner tidene separat for PUT og GET operasjoner
+    return {
+        "putTimeTaken": put_end_time - put_start_time,
+        "getTimeTaken": get_end_time - get_start_time,
+        "successes": successCounter,
+        "failures": failureCounter
+    }
 
 def shutdown_nodes(nodes):
     for node in nodes:
