@@ -9,7 +9,7 @@ import urllib.request
 
 
 def test_throughput(nodes):
-    key_value_to_test = [(uuid.uuid4(), uuid.uuid4()) for i in range(0,100)]
+    key_value_to_test = [(uuid.uuid4(), uuid.uuid4()) for i in range(0,1000)]
 
     successCounter = 0
     failureCounter = 0
@@ -26,10 +26,8 @@ def test_throughput(nodes):
 
         if response.decode("utf-8") == str(value):
             successCounter += 1
-            print(f"{response.decode("utf-8")} == {value}")
         else:
             failureCounter += 1
-            print(f"{response.decode("utf-8")} != {value}")
     endTime = time.time()
 
     return {"timeTaken": endTime - startTime, "successes": successCounter, "failures": failureCounter}
