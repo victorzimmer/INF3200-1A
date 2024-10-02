@@ -5,7 +5,7 @@ use rocket::http::Status;
 use rocket::response::status::{self, BadRequest, Conflict, Created, Custom, NoContent};
 use rocket::serde::Deserialize;
 use rocket::serde::{json::Json, Serialize};
-use rocket::State;
+use rocket::{Shutdown, State};
 use sha1::{Digest, Sha1};
 use std::env;
 use std::sync::{Arc, RwLock};
@@ -100,6 +100,12 @@ fn helloworld(node_config: &State<Arc<RwLock<NodeConfig>>>) -> String {
     )
 }
 
+#[get("/shutdown")]
+fn shutdown(shutdown: Shutdown) -> String {
+    shutdown.notify();
+    String::from("Bye!")
+}
+
 // endpoint to retrive a value for a given
 #[get("/storage/<key>")]
 fn get_storage(
@@ -113,7 +119,6 @@ fn get_storage(
     hasher.update(key.as_bytes());
     let hashed = hasher.finalize();
 
-    
     // For our RING_SIZE = 2^16 = 65 536 that means reading the first two bytes of the hash and interpreting them as a u16.
     let hash_slice: [u8; 2] = [hashed[0], hashed[1]];
     let hashed_location: u16 = u16::from_be_bytes(hash_slice);
@@ -225,7 +230,7 @@ fn put_storage(
     value: &str,
 ) -> Result<String, Custom<String>> {
     let config = node_config.read().expect("RWLock is poisoned");
-    
+
     // We use the hasher to hash the given key
     let mut hasher = Sha1::new();
     hasher.update(key.as_bytes());
@@ -921,6 +926,7 @@ fn rocket() -> _ {
         "/",
         routes![
             helloworld,
+            shutdown,
             get_storage,
             put_storage,
             get_network,
