@@ -1,5 +1,6 @@
 import os
 import re
+import uuid
 import sys
 import json
 import time
@@ -8,7 +9,28 @@ import urllib.request
 
 
 def test_throughput(nodes):
-    return len(nodes)
+    key_value_to_test = [(uuid.uuid4(), uuid.uuid4()) for i in range(0,100)]
+
+    successCounter = 0
+    failureCounter = 0
+
+    startTime = time.time()
+    for (key,value) in key_value_to_test:
+        urllib.request.urlopen(f"http://{random.choice(nodes)}/put").read()
+
+        req = urllib.request.Request(url = f"http://{random.choice(nodes)}/storage/{key}", data = bytes(str(value).encode("utf-8")), method = "PUT")
+        req.add_header("Content-type", "application/json; charset=UTF-8")
+        urllib.request.urlopen(req)
+
+    for (key,value) in key_value_to_test:
+        response = urllib.request.urlopen(f"http://{random.choice(nodes)}/storage/{key}").read()
+        if response == value:
+            successCounter += 1
+        else:
+            failureCounter += 1
+    endTime = time.time()
+
+    return {"timeTaken": endTime - startTime, "successes": successCounter, "failures": failureCounter}
 
 
 def shutdown_nodes(nodes):
