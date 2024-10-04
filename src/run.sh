@@ -1,6 +1,8 @@
 #!/bin/bash
 
 regex_positive_integer="^[0-9]+$"  # regex for positive integer
+BINARY_FILE="inf2300-a1-bin-x86_64-unknown-linux-gnu"
+
 
 # See if an argument is provided
 if [ -z "$1" ]; then  # -z checks if the variable is empty
@@ -23,6 +25,12 @@ if ! [[ "$2" =~ $regex_positive_integer ]]; then
 else
     finger_table_size=$2
 fi
+
+
+if [ -f $BINARY_FILE ]; then
+   rm $BINARY_FILE
+fi
+
 
 
 # Download run-node.sh if not already present
