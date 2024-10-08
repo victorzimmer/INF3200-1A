@@ -1,7 +1,6 @@
-# INF-3200, Assignment 1B  
+# INF-3200, Assignment 2 
 
 ## Overview 
-This project is an implementation of a distributed key-value store using a Chord-like Distributed Hash Table (DHT), as part of the INF-3200 Distributed Systems Fundamentals course. The system supports deploying multiple nodes in a network and distributing key-value pairs across them.
 
 ## Implementation Details
 
