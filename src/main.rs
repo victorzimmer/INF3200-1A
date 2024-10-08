@@ -39,6 +39,7 @@ struct NodeConfig {
     precessor: Option<Node>,
     finger_table: Vec<Node>,
     storage: Storage,
+    crashed: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -106,6 +107,24 @@ fn shutdown(shutdown: Shutdown) -> String {
     String::from("Bye!")
 }
 
+#[post("/sim-crash")]
+fn post_sim_crash(node_config: &State<Arc<RwLock<NodeConfig>>>) -> () {
+    let mut config = node_config.write().expect("RWLock is poisoned");
+    config.crashed = true;
+}
+
+#[post("/sim-recover")]
+fn post_sim_recover(node_config: &State<Arc<RwLock<NodeConfig>>>) -> () {
+    let mut config = node_config.write().expect("RWLock is poisoned");
+    config.crashed = false;
+}
+
+#[put("/ring/local", data = "<new_local>")]
+fn put_local(node_config: &State<Arc<RwLock<NodeConfig>>>, new_local: Json<Node>) -> () {
+    let mut config = node_config.write().expect("RWLock is poisoned");
+    config.local = new_local.0;
+}
+
 // endpoint to retrive a value for a given
 #[get("/storage/<key>")]
 fn get_storage(
@@ -113,6 +132,13 @@ fn get_storage(
     key: &str,
 ) -> Result<String, Custom<String>> {
     let config = node_config.read().expect("RWLock is poisoned");
+
+    if config.crashed {
+        return Err(status::Custom(
+            Status::InternalServerError,
+            String::from("Node is crashed"),
+        ));
+    }
 
     // We use the hasher to hash the given key
     let mut hasher = Sha1::new();
@@ -904,6 +930,7 @@ fn rocket() -> _ {
         storage: Storage::new(),
         network: None,
         connected: false,
+        crashed: false,
     }));
 
     node_config
@@ -927,6 +954,8 @@ fn rocket() -> _ {
         routes![
             helloworld,
             shutdown,
+            post_sim_crash,
+            post_sim_recover,
             get_storage,
             put_storage,
             get_network,
