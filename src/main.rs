@@ -10,10 +10,16 @@ use sha1::{Digest, Sha1};
 use std::env;
 use std::sync::{Arc, RwLock};
 
+// Declare and import the storage module
 mod storage;
 use storage::Storage;
 
+// Declare and import the nodeConfig module
+mod node_config;
+use node_config::NodeConfig;
+
 const RING_SIZE: u16 = u16::MAX; // Maximum size of the ring, and thereby maximum number of nodes supported
+
 
 // Node represent a node in the cluster
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -29,17 +35,6 @@ struct Node {
 #[serde(crate = "rocket::serde")]
 struct Network {
     network_id: String,
-}
-
-struct NodeConfig {
-    network: Option<Network>,
-    connected: bool,
-    local: Node,
-    successor: Option<Node>,
-    precessor: Option<Node>,
-    finger_table: Vec<Node>,
-    storage: Storage,
-    crashed: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
