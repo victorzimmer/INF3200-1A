@@ -2,7 +2,7 @@ use std::sync::{Arc, RwLock};
 use warp::reply;
 use warp::http::StatusCode;
 
-use crate::NodeConfig;
+use crate::node_config::NodeConfig;
 
 // Function to handle simulating a crash
 pub fn handle_sim_crash(node: Arc<RwLock<NodeConfig>>) -> reply::WithStatus<&'static str> {
@@ -18,7 +18,7 @@ pub fn handle_sim_recover(node: Arc<RwLock<NodeConfig>>) -> reply::WithStatus<&'
     reply::with_status("Node recovered", StatusCode::OK)
 }
 
-// Function to return an error when node is crashed
+// Function to return an error (503) when node is crashed
 pub fn handle_crashed_node() -> reply::WithStatus<&'static str> {
     reply::with_status("Node is not responding", StatusCode::SERVICE_UNAVAILABLE)
 }
