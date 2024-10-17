@@ -20,7 +20,6 @@ use node_config::NodeConfig;
 
 const RING_SIZE: u16 = u16::MAX; // Maximum size of the ring, and thereby maximum number of nodes supported
 
-
 // Node represent a node in the cluster
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(crate = "rocket::serde")]
@@ -88,12 +87,21 @@ fn shortest_distance_on_circumference(p1: u16, p2: u16) -> i32 {
 
 // end-point to test if the server is running
 #[get("/helloworld")]
-fn helloworld(node_config: &State<Arc<RwLock<NodeConfig>>>) -> String {
-    format!(
+fn helloworld(node_config: &State<Arc<RwLock<NodeConfig>>>) -> Result<String, Custom<String>> {
+    let mut config = node_config.read().expect("RWLock is poisoned");
+
+    if config.is_crashed() {
+        return Err(status::Custom(
+            Status::InternalServerError,
+            String::from("Node is crashed"),
+        ));
+    }
+
+    Ok(format!(
         "{}:{}",
         node_config.read().unwrap().local.hostname,
         node_config.read().unwrap().local.port
-    )
+    ))
 }
 
 #[get("/shutdown")]
@@ -103,21 +111,24 @@ fn shutdown(shutdown: Shutdown) -> String {
 }
 
 #[post("/sim-crash")]
-fn post_sim_crash(node_config: &State<Arc<RwLock<NodeConfig>>>) -> () {
+fn post_sim_crash(node_config: &State<Arc<RwLock<NodeConfig>>>) -> Result<(), Custom<String>> {
     let mut config = node_config.write().expect("RWLock is poisoned");
-    config.crashed = true;
+
+    if config.is_crashed() {
+        return Err(status::Custom(
+            Status::InternalServerError,
+            String::from("Node is crashed"),
+        ));
+    }
+
+    config.crash();
+    return Ok(());
 }
 
 #[post("/sim-recover")]
 fn post_sim_recover(node_config: &State<Arc<RwLock<NodeConfig>>>) -> () {
     let mut config = node_config.write().expect("RWLock is poisoned");
-    config.crashed = false;
-}
-
-#[put("/ring/local", data = "<new_local>")]
-fn put_local(node_config: &State<Arc<RwLock<NodeConfig>>>, new_local: Json<Node>) -> () {
-    let mut config = node_config.write().expect("RWLock is poisoned");
-    config.local = new_local.0;
+    config.recover();
 }
 
 // endpoint to retrive a value for a given
@@ -128,7 +139,7 @@ fn get_storage(
 ) -> Result<String, Custom<String>> {
     let config = node_config.read().expect("RWLock is poisoned");
 
-    if config.crashed {
+    if config.is_crashed() {
         return Err(status::Custom(
             Status::InternalServerError,
             String::from("Node is crashed"),
@@ -252,6 +263,13 @@ fn put_storage(
 ) -> Result<String, Custom<String>> {
     let config = node_config.read().expect("RWLock is poisoned");
 
+    if config.is_crashed() {
+        return Err(status::Custom(
+            Status::InternalServerError,
+            String::from("Node is crashed"),
+        ));
+    }
+
     // We use the hasher to hash the given key
     let mut hasher = Sha1::new();
     hasher.update(key.as_bytes());
@@ -347,49 +365,135 @@ fn put_storage(
 }
 
 #[get("/ring/precessor")]
-fn get_precessor(node_config: &State<Arc<RwLock<NodeConfig>>>) -> Result<Json<Node>, NoContent> {
-    match node_config.read().unwrap().precessor.clone() {
-        None => Err(NoContent),
+fn get_precessor(
+    node_config: &State<Arc<RwLock<NodeConfig>>>,
+) -> Result<Json<Node>, Custom<String>> {
+    let config = node_config.read().expect("RWLock is poisoned");
+
+    if config.is_crashed() {
+        return Err(status::Custom(
+            Status::InternalServerError,
+            String::from("Node is crashed"),
+        ));
+    }
+
+    match config.precessor.clone() {
+        None => Err(status::Custom(
+            Status::NoContent,
+            String::from("No precessor"),
+        )),
         Some(precessor) => return Ok(Json(precessor)),
     }
 }
 
 #[get("/ring/successor")]
-fn get_successor(node_config: &State<Arc<RwLock<NodeConfig>>>) -> Result<Json<Node>, NoContent> {
-    match node_config.read().unwrap().successor.clone() {
-        None => Err(NoContent),
+fn get_successor(
+    node_config: &State<Arc<RwLock<NodeConfig>>>,
+) -> Result<Json<Node>, Custom<String>> {
+    let config = node_config.read().expect("RWLock is poisoned");
+
+    if config.is_crashed() {
+        return Err(status::Custom(
+            Status::InternalServerError,
+            String::from("Node is crashed"),
+        ));
+    }
+
+    match config.successor.clone() {
+        None => Err(status::Custom(
+            Status::NoContent,
+            String::from("No successor"),
+        )),
         Some(successor) => return Ok(Json(successor)),
     }
 }
 
 #[get("/ring/local")]
-fn get_local(node_config: &State<Arc<RwLock<NodeConfig>>>) -> Json<Node> {
+fn get_local(node_config: &State<Arc<RwLock<NodeConfig>>>) -> Result<Json<Node>, Custom<String>> {
     let config = node_config.read().expect("RWLock is poisoned");
-    return Json(config.local.clone());
+
+    if config.is_crashed() {
+        return Err(status::Custom(
+            Status::InternalServerError,
+            String::from("Node is crashed"),
+        ));
+    }
+
+    return Ok(Json(config.local.clone()));
 }
 
 #[put("/ring/precessor", data = "<new_precessor>")]
-fn put_precessor(node_config: &State<Arc<RwLock<NodeConfig>>>, new_precessor: Json<Node>) -> () {
+fn put_precessor(
+    node_config: &State<Arc<RwLock<NodeConfig>>>,
+    new_precessor: Json<Node>,
+) -> Result<(), Custom<String>> {
     let mut config = node_config.write().expect("RWLock is poisoned");
+
+    if config.is_crashed() {
+        return Err(status::Custom(
+            Status::InternalServerError,
+            String::from("Node is crashed"),
+        ));
+    }
+
     config.precessor = Some(new_precessor.0);
+
+    Ok(())
 }
 
 #[put("/ring/successor", data = "<new_successor>")]
-fn put_successor(node_config: &State<Arc<RwLock<NodeConfig>>>, new_successor: Json<Node>) -> () {
+fn put_successor(
+    node_config: &State<Arc<RwLock<NodeConfig>>>,
+    new_successor: Json<Node>,
+) -> Result<(), Custom<String>> {
     let mut config = node_config.write().expect("RWLock is poisoned");
+
+    if config.is_crashed() {
+        return Err(status::Custom(
+            Status::InternalServerError,
+            String::from("Node is crashed"),
+        ));
+    }
+
     config.successor = Some(new_successor.0.clone());
     config.local.range = new_successor.0.position - config.local.position;
+
+    Ok(())
 }
 
 #[put("/ring/local", data = "<new_local>")]
-fn put_local(node_config: &State<Arc<RwLock<NodeConfig>>>, new_local: Json<Node>) -> () {
+fn put_local(
+    node_config: &State<Arc<RwLock<NodeConfig>>>,
+    new_local: Json<Node>,
+) -> Result<(), Custom<String>> {
     let mut config = node_config.write().expect("RWLock is poisoned");
+
+    if config.is_crashed() {
+        return Err(status::Custom(
+            Status::InternalServerError,
+            String::from("Node is crashed"),
+        ));
+    }
+
     config.local = new_local.0;
+
+    Ok(())
 }
 
 #[get("/ring/finger_table")]
-fn get_finger_table(node_config: &State<Arc<RwLock<NodeConfig>>>) -> Json<Vec<Node>> {
-    return Json(node_config.read().unwrap().finger_table.clone());
+fn get_finger_table(
+    node_config: &State<Arc<RwLock<NodeConfig>>>,
+) -> Result<Json<Vec<Node>>, Custom<String>> {
+    let config = node_config.read().expect("RWLock is poisoned");
+
+    if config.is_crashed() {
+        return Err(status::Custom(
+            Status::InternalServerError,
+            String::from("Node is crashed"),
+        ));
+    }
+
+    return Ok(Json(config.finger_table.clone()));
 }
 
 #[put("/ring/calculate_finger_table", data = "<finger_table_info>")]
@@ -399,6 +503,13 @@ fn calculate_finger_table(
 ) -> Result<String, Custom<String>> {
     let mut config = node_config.write().expect("RWLock is poisoned");
     println!("Calculate finger table");
+
+    if config.is_crashed() {
+        return Err(status::Custom(
+            Status::InternalServerError,
+            String::from("Node is crashed"),
+        ));
+    }
 
     config.finger_table.clear();
 
@@ -478,10 +589,21 @@ fn calculate_finger_table(
 
 // Endpoint to get information about the network
 #[get("/network")]
-fn get_network(node_config: &State<Arc<RwLock<NodeConfig>>>) -> Json<Vec<String>> {
+fn get_network(
+    node_config: &State<Arc<RwLock<NodeConfig>>>,
+) -> Result<Json<Vec<String>>, Custom<String>> {
+    let config = node_config.read().expect("RWLock is poisoned");
+
+    if config.is_crashed() {
+        return Err(status::Custom(
+            Status::InternalServerError,
+            String::from("Node is crashed"),
+        ));
+    }
+
     let mut known_nodes: Vec<String> = Vec::new();
 
-    match node_config.read().unwrap().precessor.clone() {
+    match config.precessor.clone() {
         None => {}
         Some(node) => {
             let mut hostname_port = String::new();
@@ -492,7 +614,7 @@ fn get_network(node_config: &State<Arc<RwLock<NodeConfig>>>) -> Json<Vec<String>
         }
     }
 
-    match node_config.read().unwrap().successor.clone() {
+    match config.successor.clone() {
         None => {}
         Some(node) => {
             let mut hostname_port = String::new();
@@ -503,18 +625,28 @@ fn get_network(node_config: &State<Arc<RwLock<NodeConfig>>>) -> Json<Vec<String>
         }
     }
 
-    return Json(known_nodes);
+    return Ok(Json(known_nodes));
 }
 
 #[put("/network/initialize", data = "<network_information>")]
 fn put_network_initialize(
     node_config: &State<Arc<RwLock<NodeConfig>>>,
     network_information: Json<SuppliedNetworkInformation>,
-) -> Result<String, Conflict<&str>> {
+) -> Result<String, Custom<String>> {
     let mut config = node_config.write().expect("RWLock is poisoned");
 
+    if config.is_crashed() {
+        return Err(status::Custom(
+            Status::InternalServerError,
+            String::from("Node is crashed"),
+        ));
+    }
+
     if config.connected {
-        return Err(status::Conflict("Node is already connected to network"));
+        return Err(status::Custom(
+            Status::Conflict,
+            String::from("Node is already connected to network"),
+        ));
     }
 
     config.connected = true;
@@ -541,6 +673,14 @@ fn get_network_longest_range(
     node_config: &State<Arc<RwLock<NodeConfig>>>,
 ) -> Result<Json<LongestRangeResponse>, Custom<String>> {
     let config = node_config.read().expect("RWLock is poisoned");
+
+    if config.is_crashed() {
+        return Err(status::Custom(
+            Status::InternalServerError,
+            String::from("Node is crashed"),
+        ));
+    }
+
     let longest_range_request = LongestRangeRequest {
         started_by: config.local.clone(),
     };
@@ -605,6 +745,13 @@ fn post_network_longest_range(
     longest_range_request: Json<LongestRangeRequest>,
 ) -> Result<Json<LongestRangeResponse>, Custom<String>> {
     let config = node_config.read().expect("RWLock is poisoned");
+
+    if config.is_crashed() {
+        return Err(status::Custom(
+            Status::InternalServerError,
+            String::from("Node is crashed"),
+        ));
+    }
 
     if !config.connected {
         let error_message = String::from(
@@ -679,6 +826,13 @@ fn get_network_request_join(
 ) -> Result<Json<JoinNetworkInformation>, Custom<String>> {
     let config = node_config.read().expect("RWLock is poisoned");
 
+    if config.is_crashed() {
+        return Err(status::Custom(
+            Status::InternalServerError,
+            String::from("Node is crashed"),
+        ));
+    }
+
     if !config.connected {
         let error_message = String::from(
             "Node is not in a network and therefore can't provide information to join.",
@@ -714,6 +868,13 @@ fn put_network_join(
     existing_node: Json<SuppliedNode>,
 ) -> Result<String, Custom<String>> {
     let mut config = node_config.write().expect("RWLock is poisoned");
+
+    if config.is_crashed() {
+        return Err(status::Custom(
+            Status::InternalServerError,
+            String::from("Node is crashed"),
+        ));
+    }
 
     let join_uri = format!(
         "http://{}:{}/network/request_join_network_information",
