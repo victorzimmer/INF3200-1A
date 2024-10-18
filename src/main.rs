@@ -615,6 +615,13 @@ fn get_node_info(
 ) -> Result<Json<NodeInfo>, Custom<String>> {
     let config = node_config.read().expect("RWLock is poisoned");
 
+    if config.is_crashed() {
+        return Err(status::Custom(
+            Status::ServiceUnavailable,
+            String::from("Node is crashed"),
+        ));
+    }
+
     let mut other_nodes: Vec<String> = Vec::new();
 
     match config.precessor.clone() {
@@ -992,6 +999,13 @@ fn put_network_leave(
             String::from("Node is not in a network and therefore can't leave the network.");
         println!("{}", &error_message);
         return Err(status::Custom(Status::FailedDependency, error_message));
+    }
+
+    if config.is_crashed() {
+        return Err(status::Custom(
+            Status::ServiceUnavailable,
+            String::from("Node is crashed"),
+        ));
     }
 
     let successor = config
