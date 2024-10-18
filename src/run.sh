@@ -1,10 +1,12 @@
 #!/bin/bash
 
 regex_positive_integer="^[0-9]+$"  # regex for positive integer
+BINARY_FILE="inf2300-a1-bin-x86_64-unknown-linux-gnu"
+
 
 # See if an argument is provided
 if [ -z "$1" ]; then  # -z checks if the variable is empty
-    echo "No argument provided, please provide the number of servers to start: $0 <number_of_servers>"
+    echo "No argument provided, please provide the number of servers to start: $0 <number_of_servers> [size of finger table (default 0)]"
     exit 1
 fi
 
@@ -15,12 +17,28 @@ if ! [[ "$1" =~ $regex_positive_integer ]]; then
 fi
 
 
+
+finger_table_size=0
+# See if the argument is an integer
+if ! [[ "$2" =~ $regex_positive_integer ]]; then
+    finger_table_size=0
+else
+    finger_table_size=$2
+fi
+
+
+if [ -f $BINARY_FILE ]; then
+   rm $BINARY_FILE
+fi
+
+
+
 # Download run-node.sh if not already present
 if [ -f "run-node.sh" ]; then
    echo "run-node.sh already present."
 else
    echo "Downloading run-node.sh..."
-   wget -q "https://raw.githubusercontent.com/victorzimmer/INF3200-1A/master/src/run-node.sh"
+   wget -q "https://raw.githubusercontent.com/SeraMadeleine/INF3200-1B/refs/heads/master/src/run-node.sh"
    echo "Downloaded run-node.sh."
 fi
 
@@ -60,6 +78,11 @@ remaining_node_count=$requested_node_count
 
 deployed_services=()
 
+deployed_nodes_count=0
+
+previous_node=0
+previous_port=0
+
 while [ $remaining_node_count -gt 0 ]
 do
     for node in $node_list; do
@@ -67,13 +90,35 @@ do
         then
             port=$(shuf -i 49152-65535 -n 1)
             (echo "nodename=$node port=$port"; cat run-node.sh) | ssh $node /bin/bash
+
+            sleep 1
+
             echo "Started server on node: $node:$port"
             deployed_services+=("$node:$port")
             remaining_node_count=$((remaining_node_count-1))
+
+            if [ $deployed_nodes_count -eq 0 ]
+            then
+                echo "Initializing network on first node."
+                curl -v -X "PUT" -H "Content-Type: application/json" --data "{\"network_id\": \"chord-network\"}" "http://$node:$port/network/initialize"
+            else
+                echo "Joining node to previous node."
+                curl -v -X "PUT" -H "Content-Type: application/json" --data "{\"hostname\": \"$previous_node\", \"port\":$previous_port}" "http://$node:$port/network/join"
+            fi
+            deployed_nodes_count=$deployed_nodes_count+1
+            previous_node=$node
+            previous_port=$port
         fi
     done
 done
 
+if [ $finger_table_size -gt 0 ]
+then
+    for service in "${deployed_services[@]}"; do
+        echo "{\"size\": $finger_table_size}"
+        curl -v -X "PUT" -H "Content-Type: application/json" --data "{\"size\": $finger_table_size}" "http://$service/ring/calculate_finger_table"
+    done
+fi
 
 
 # Initialize the JSON string
