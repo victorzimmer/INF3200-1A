@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate rocket;
 
+use minreq::Response;
 use rocket::http::Status;
 use rocket::response::status::{self, BadRequest, Conflict, Created, Custom, NoContent};
 use rocket::serde::Deserialize;
@@ -8,6 +9,7 @@ use rocket::serde::{json::Json, Serialize};
 use rocket::{Shutdown, State};
 use sha1::{Digest, Sha1};
 use std::env;
+use std::fmt::format;
 use std::sync::{Arc, RwLock};
 
 // Declare and import the storage module
@@ -18,7 +20,17 @@ use storage::Storage;
 mod node_config;
 use node_config::NodeConfig;
 
+mod http_connect;
+
 const RING_SIZE: u16 = u16::MAX; // Maximum size of the ring, and thereby maximum number of nodes supported
+
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(crate = "rocket::serde")]
+struct NodeInfo {
+    node_hash: String,
+    successor: String,
+    others: Vec<String>,
+}
 
 // Node represent a node in the cluster
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -74,6 +86,28 @@ struct FingerTableInformation {
     size: u16,
 }
 
+fn key_to_location(key: &str) -> u16 {
+    // We use the hasher to hash the given key
+    let mut hasher = Sha1::new();
+    hasher.update(key.as_bytes());
+    let hashed = hasher.finalize();
+
+    // For our RING_SIZE = 2^16 = 65 536 that means reading the first two bytes of the hash and interpreting them as a u16.
+    let hash_slice: [u8; 2] = [hashed[0], hashed[1]];
+    let hashed_location: u16 = u16::from_be_bytes(hash_slice);
+
+    return hashed_location;
+}
+
+fn is_location_in_range(location: u16, position: u16, range: u16) -> bool {
+    // Special case for range wrapping circle
+    if RING_SIZE - position < range {
+        return location >= position || location < range - (RING_SIZE - position);
+    } else {
+        return location >= position && location < position + range;
+    }
+}
+
 fn shortest_distance_on_circumference(p1: u16, p2: u16) -> i32 {
     let forwards_distance = i32::from(p2) - i32::from(p1);
     let backwards_distance = (i32::from(RING_SIZE) - i32::from(p2)) + i32::from(p1);
@@ -88,11 +122,11 @@ fn shortest_distance_on_circumference(p1: u16, p2: u16) -> i32 {
 // end-point to test if the server is running
 #[get("/helloworld")]
 fn helloworld(node_config: &State<Arc<RwLock<NodeConfig>>>) -> Result<String, Custom<String>> {
-    let mut config = node_config.read().expect("RWLock is poisoned");
+    let config = node_config.read().expect("RWLock is poisoned");
 
     if config.is_crashed() {
         return Err(status::Custom(
-            Status::InternalServerError,
+            Status::ServiceUnavailable,
             String::from("Node is crashed"),
         ));
     }
@@ -116,7 +150,7 @@ fn post_sim_crash(node_config: &State<Arc<RwLock<NodeConfig>>>) -> Result<(), Cu
 
     if config.is_crashed() {
         return Err(status::Custom(
-            Status::InternalServerError,
+            Status::ServiceUnavailable,
             String::from("Node is crashed"),
         ));
     }
@@ -129,6 +163,27 @@ fn post_sim_crash(node_config: &State<Arc<RwLock<NodeConfig>>>) -> Result<(), Cu
 fn post_sim_recover(node_config: &State<Arc<RwLock<NodeConfig>>>) -> () {
     let mut config = node_config.write().expect("RWLock is poisoned");
     config.recover();
+
+    // let join_node = None
+    // // Check is precessor is online
+    // if precessor online {
+    //     join_node = precessor
+    // }
+    // else if successor_online {
+    //     join_node = successor
+    // }
+    // else {
+    //     check finger table nodes
+    //         join_node = online node
+    // }
+
+    // If some
+    //     put_network_join(
+    //         node_config,
+    //         Json(SuppliedNode { hostname: .hostname, port: () }),
+    //     );
+    // Else
+    //     Cant join error
 }
 
 // endpoint to retrive a value for a given
@@ -141,49 +196,23 @@ fn get_storage(
 
     if config.is_crashed() {
         return Err(status::Custom(
-            Status::InternalServerError,
+            Status::ServiceUnavailable,
             String::from("Node is crashed"),
         ));
     }
 
-    // We use the hasher to hash the given key
-    let mut hasher = Sha1::new();
-    hasher.update(key.as_bytes());
-    let hashed = hasher.finalize();
+    let hashed_location: u16 = key_to_location(key);
 
-    // For our RING_SIZE = 2^16 = 65 536 that means reading the first two bytes of the hash and interpreting them as a u16.
-    let hash_slice: [u8; 2] = [hashed[0], hashed[1]];
-    let hashed_location: u16 = u16::from_be_bytes(hash_slice);
-
-    // Special case for range wrapping circle
-    if RING_SIZE - config.local.position < config.local.range {
-        if hashed_location >= config.local.position
-            || hashed_location < config.local.range - (RING_SIZE - config.local.position)
-        {
-            match config.storage.retrieve(key) {
-                Some(value) => return Ok(value),
-                None => {
-                    return Err(status::Custom(
-                        Status::NotFound,
-                        String::from("Key not found"),
-                    ))
-                }
-            };
-        }
-    } else {
-        if hashed_location >= config.local.position
-            && hashed_location < config.local.position + config.local.range
-        {
-            match config.storage.retrieve(key) {
-                Some(value) => return Ok(value),
-                None => {
-                    return Err(status::Custom(
-                        Status::NotFound,
-                        String::from("Key not found"),
-                    ))
-                }
-            };
-        }
+    if is_location_in_range(hashed_location, config.local.position, config.local.range) {
+        match config.storage.retrieve(key) {
+            Some(value) => return Ok(value),
+            None => {
+                return Err(status::Custom(
+                    Status::NotFound,
+                    String::from("Key not found"),
+                ))
+            }
+        };
     }
 
     // Early returns for cases where key is under over jurisdiction, so if we get here we need to forward the request
@@ -217,37 +246,30 @@ fn get_storage(
         }
     }
 
-    let forward_request_uri = format!(
-        "http://{}:{}/storage/{}",
-        forward_node.hostname, forward_node.port, key
-    );
-
-    let forward_request_response = match minreq::get(forward_request_uri).send() {
-        Err(_err) => {
-            let error_message = String::from("Could not connect to successor to forward request.");
-            println!("{}", &error_message);
-            return Err(status::Custom(Status::FailedDependency, error_message));
-        }
+    let forward_request_response = match http_connect::get_from_node(
+        &forward_node.hostname,
+        forward_node.port,
+        &format!("storage/{}", key),
+    ) {
         Ok(response) => response,
+        Err(node_connection_error) => {
+            if node_connection_error.connection_established
+                && node_connection_error
+                    .http_response
+                    .is_some_and(|http_response| http_response.status_code == 404)
+            {
+                return Err(status::Custom(
+                    Status::NotFound,
+                    String::from("Key not found"),
+                ));
+            } else {
+                let error_message =
+                    String::from("Could not connect to successor to forward request.");
+                println!("{}", &error_message);
+                return Err(status::Custom(Status::FailedDependency, error_message));
+            }
+        }
     };
-
-    if forward_request_response.status_code == 404 {
-        return Err(status::Custom(
-            Status::NotFound,
-            String::from("Key not found"),
-        ));
-    } else if forward_request_response.status_code != 200 {
-        let error_message = format!(
-            "Forward node denied request. Node responded: [{} - {}] {}",
-            forward_request_response.status_code,
-            forward_request_response.reason_phrase,
-            forward_request_response
-                .as_str()
-                .unwrap_or("Unparseable content")
-        );
-        println!("{}", &error_message);
-        return Err(status::Custom(Status::FailedDependency, error_message));
-    }
 
     return Ok(String::from(
         forward_request_response.as_str().expect("No body found"),
@@ -265,35 +287,16 @@ fn put_storage(
 
     if config.is_crashed() {
         return Err(status::Custom(
-            Status::InternalServerError,
+            Status::ServiceUnavailable,
             String::from("Node is crashed"),
         ));
     }
 
-    // We use the hasher to hash the given key
-    let mut hasher = Sha1::new();
-    hasher.update(key.as_bytes());
-    let hashed = hasher.finalize();
+    let hashed_location: u16 = key_to_location(key);
 
-    // For our RING_SIZE = 2^16 = 65 536 that means reading the first two bytes of the hash and interpreting them as a u16.
-    let hash_slice: [u8; 2] = [hashed[0], hashed[1]];
-    let hashed_location: u16 = u16::from_be_bytes(hash_slice);
-
-    // Special case for range wrapping circle
-    if RING_SIZE - config.local.position < config.local.range {
-        if hashed_location >= config.local.position
-            || hashed_location < config.local.range - (RING_SIZE - config.local.position)
-        {
-            config.storage.store(key, value);
-            return Ok(String::from(value));
-        }
-    } else {
-        if hashed_location >= config.local.position
-            && hashed_location < config.local.position + config.local.range
-        {
-            config.storage.store(key, value);
-            return Ok(String::from(value));
-        }
+    if is_location_in_range(hashed_location, config.local.position, config.local.range) {
+        config.storage.store(key, value);
+        return Ok(String::from(value));
     }
 
     // Early returns for cases where key is under over jurisdiction, so if we get here we need to forward the request
@@ -328,40 +331,18 @@ fn put_storage(
         }
     }
 
-    let forward_request_uri = format!(
-        "http://{}:{}/storage/{}",
-        forward_node.hostname, forward_node.port, key
+    let forward_request_response = http_connect::write_body_to_node(
+        http_connect::WriteOperations::Post,
+        &forward_node.hostname,
+        forward_node.port,
+        &format!("storage/{}", key),
+        "text/plain",
+        value,
     );
 
-    let forward_request_response = match minreq::put(forward_request_uri)
-        .with_body(value)
-        .with_header("Content-Type", "text/plain")
-        .send()
-    {
-        Err(_err) => {
-            let error_message = String::from("Could not connect to successor to forward request.");
-            println!("{}", &error_message);
-            return Err(status::Custom(Status::FailedDependency, error_message));
-        }
-        Ok(response) => response,
-    };
+    forward_request_response.expect("Could not forward request");
 
-    if forward_request_response.status_code != 200 {
-        let error_message = format!(
-            "Forward node denied request. Node responded: [{} - {}] {}",
-            forward_request_response.status_code,
-            forward_request_response.reason_phrase,
-            forward_request_response
-                .as_str()
-                .unwrap_or("Unparseable content")
-        );
-        println!("{}", &error_message);
-        return Err(status::Custom(Status::FailedDependency, error_message));
-    }
-
-    return Ok(String::from(
-        forward_request_response.as_str().expect("No body found"),
-    ));
+    return Ok(String::from(value));
 }
 
 #[get("/ring/precessor")]
@@ -372,7 +353,7 @@ fn get_precessor(
 
     if config.is_crashed() {
         return Err(status::Custom(
-            Status::InternalServerError,
+            Status::ServiceUnavailable,
             String::from("Node is crashed"),
         ));
     }
@@ -394,7 +375,7 @@ fn get_successor(
 
     if config.is_crashed() {
         return Err(status::Custom(
-            Status::InternalServerError,
+            Status::ServiceUnavailable,
             String::from("Node is crashed"),
         ));
     }
@@ -414,7 +395,7 @@ fn get_local(node_config: &State<Arc<RwLock<NodeConfig>>>) -> Result<Json<Node>,
 
     if config.is_crashed() {
         return Err(status::Custom(
-            Status::InternalServerError,
+            Status::ServiceUnavailable,
             String::from("Node is crashed"),
         ));
     }
@@ -431,7 +412,7 @@ fn put_precessor(
 
     if config.is_crashed() {
         return Err(status::Custom(
-            Status::InternalServerError,
+            Status::ServiceUnavailable,
             String::from("Node is crashed"),
         ));
     }
@@ -450,7 +431,7 @@ fn put_successor(
 
     if config.is_crashed() {
         return Err(status::Custom(
-            Status::InternalServerError,
+            Status::ServiceUnavailable,
             String::from("Node is crashed"),
         ));
     }
@@ -470,7 +451,7 @@ fn put_local(
 
     if config.is_crashed() {
         return Err(status::Custom(
-            Status::InternalServerError,
+            Status::ServiceUnavailable,
             String::from("Node is crashed"),
         ));
     }
@@ -488,7 +469,7 @@ fn get_finger_table(
 
     if config.is_crashed() {
         return Err(status::Custom(
-            Status::InternalServerError,
+            Status::ServiceUnavailable,
             String::from("Node is crashed"),
         ));
     }
@@ -506,7 +487,7 @@ fn calculate_finger_table(
 
     if config.is_crashed() {
         return Err(status::Custom(
-            Status::InternalServerError,
+            Status::ServiceUnavailable,
             String::from("Node is crashed"),
         ));
     }
@@ -524,12 +505,11 @@ fn calculate_finger_table(
     while current_node.hostname != config.local.hostname || current_node.port != config.local.port {
         complete_node_list.push(current_node.clone());
 
-        let get_successor_uri = format!(
-            "http://{}:{}/ring/successor",
-            current_node.hostname, current_node.port
-        );
-
-        let get_successor_response = match minreq::get(get_successor_uri).send() {
+        let get_successor_response = match http_connect::get_from_node(
+            &current_node.hostname,
+            current_node.port,
+            "ring/successor",
+        ) {
             Err(_err) => {
                 let error_message = String::from("Could not connect to node to get successor.");
                 println!("{}", &error_message);
@@ -537,19 +517,6 @@ fn calculate_finger_table(
             }
             Ok(response) => response,
         };
-
-        if get_successor_response.status_code != 200 {
-            let error_message = format!(
-                "Node denied request for successor. Node responded: [{} - {}] {}",
-                get_successor_response.status_code,
-                get_successor_response.reason_phrase,
-                get_successor_response
-                    .as_str()
-                    .unwrap_or("Unparseable content")
-            );
-            println!("{}", &error_message);
-            return Err(status::Custom(Status::FailedDependency, error_message));
-        }
 
         current_node = match get_successor_response.json::<Node>() {
             Err(_err) => {
@@ -596,7 +563,7 @@ fn get_network(
 
     if config.is_crashed() {
         return Err(status::Custom(
-            Status::InternalServerError,
+            Status::ServiceUnavailable,
             String::from("Node is crashed"),
         ));
     }
@@ -628,6 +595,33 @@ fn get_network(
     return Ok(Json(known_nodes));
 }
 
+#[get("/node-info")]
+fn get_node_info(
+    node_config: &State<Arc<RwLock<NodeConfig>>>,
+) -> Result<Json<NodeInfo>, Custom<String>> {
+    let config = node_config.read().expect("RWLock is poisoned");
+
+    let mut other_nodes: Vec<String> = Vec::new();
+
+    match config.precessor.clone() {
+        Some(precessor) => other_nodes.push(format!("{}:{}", precessor.hostname, precessor.port)),
+        None => {}
+    }
+
+    for node in config.finger_table.clone() {
+        other_nodes.push(format!("{}:{}", node.hostname, node.port));
+    }
+
+    return Ok(Json(NodeInfo {
+        node_hash: format!("{}", config.local.position),
+        successor: match config.successor.clone() {
+            Some(successor) => format!("{}:{}", successor.hostname, successor.port),
+            None => format!("undefined"),
+        },
+        others: other_nodes,
+    }));
+}
+
 #[put("/network/initialize", data = "<network_information>")]
 fn put_network_initialize(
     node_config: &State<Arc<RwLock<NodeConfig>>>,
@@ -637,7 +631,7 @@ fn put_network_initialize(
 
     if config.is_crashed() {
         return Err(status::Custom(
-            Status::InternalServerError,
+            Status::ServiceUnavailable,
             String::from("Node is crashed"),
         ));
     }
@@ -676,7 +670,7 @@ fn get_network_longest_range(
 
     if config.is_crashed() {
         return Err(status::Custom(
-            Status::InternalServerError,
+            Status::ServiceUnavailable,
             String::from("Node is crashed"),
         ));
     }
@@ -695,36 +689,21 @@ fn get_network_longest_range(
 
     let successor = config.successor.as_ref().expect("No successor");
 
-    let longest_range_uri = format!(
-        "http://{}:{}/network/longest_range",
-        successor.hostname, successor.port
-    );
-    let upstream_response = match minreq::post(longest_range_uri)
-        .with_json(&longest_range_request)
-        .expect("Unable to serialize request")
-        .send()
-    {
+    let upstream_response = match http_connect::write_json_to_node(
+        http_connect::WriteOperations::Post,
+        &successor.hostname,
+        successor.port,
+        "network/longest_range",
+        &longest_range_request,
+    ) {
+        Ok(response) => response,
         Err(_err) => {
-            let error_message = format!(
-                "Could not connect to successor node: {}:{}.",
-                successor.hostname, successor.port
-            );
-            println!("{}", &error_message);
-            return Err(status::Custom(Status::FailedDependency, error_message));
+            return Err(status::Custom(
+                Status::FailedDependency,
+                String::from("Longest range request failed"),
+            ))
         }
-        Ok(upstream_response) => upstream_response,
     };
-
-    if upstream_response.status_code != 200 {
-        let error_message = format!(
-            "Successor node did not provide longest range. Node responded: [{} - {}] {}",
-            upstream_response.status_code,
-            upstream_response.reason_phrase,
-            upstream_response.as_str().unwrap_or("Unparseable content")
-        );
-        println!("{}", &error_message);
-        return Err(status::Custom(Status::FailedDependency, error_message));
-    }
 
     let longest_range_upstream = match upstream_response.json::<LongestRangeResponse>() {
         Err(_err) => {
@@ -748,7 +727,7 @@ fn post_network_longest_range(
 
     if config.is_crashed() {
         return Err(status::Custom(
-            Status::InternalServerError,
+            Status::ServiceUnavailable,
             String::from("Node is crashed"),
         ));
     }
@@ -771,33 +750,21 @@ fn post_network_longest_range(
     } else {
         let successor = config.successor.as_ref().expect("No successor");
 
-        let longest_range_uri = format!(
-            "http://{}:{}/network/longest_range",
-            successor.hostname, successor.port
-        );
-        let upstream_response = match minreq::post(longest_range_uri)
-            .with_json(&longest_range_request.0)
-            .expect("Unable to serialize request")
-            .send()
-        {
+        let upstream_response = match http_connect::write_json_to_node(
+            http_connect::WriteOperations::Post,
+            &successor.hostname,
+            successor.port,
+            "network/longest_range",
+            longest_range_request.0,
+        ) {
+            Ok(response) => response,
             Err(_err) => {
-                let error_message = String::from("Could not connect to successor node.");
-                println!("{}", &error_message);
-                return Err(status::Custom(Status::FailedDependency, error_message));
+                return Err(status::Custom(
+                    Status::FailedDependency,
+                    String::from("Longest range request failed"),
+                ))
             }
-            Ok(upstream_response) => upstream_response,
         };
-
-        if upstream_response.status_code != 200 {
-            let error_message = format!(
-                "Successor node did not provide longest range. Node responded: [{} - {}] {}",
-                upstream_response.status_code,
-                upstream_response.reason_phrase,
-                upstream_response.as_str().unwrap_or("Unparseable content")
-            );
-            println!("{}", &error_message);
-            return Err(status::Custom(Status::FailedDependency, error_message));
-        }
 
         let longest_range_upstream = match upstream_response.json::<LongestRangeResponse>() {
             Err(_err) => {
@@ -828,7 +795,7 @@ fn get_network_request_join(
 
     if config.is_crashed() {
         return Err(status::Custom(
-            Status::InternalServerError,
+            Status::ServiceUnavailable,
             String::from("Node is crashed"),
         ));
     }
@@ -871,35 +838,24 @@ fn put_network_join(
 
     if config.is_crashed() {
         return Err(status::Custom(
-            Status::InternalServerError,
+            Status::ServiceUnavailable,
             String::from("Node is crashed"),
         ));
     }
 
-    let join_uri = format!(
-        "http://{}:{}/network/request_join_network_information",
-        existing_node.0.hostname, existing_node.0.port
-    );
-
-    let join_response = match minreq::get(join_uri).send() {
+    let join_response = match http_connect::get_from_node(
+        &existing_node.0.hostname,
+        existing_node.0.port,
+        "network/request_join_network_information",
+    ) {
+        Ok(response) => response,
         Err(_err) => {
-            let error_message = String::from("Could not connect to existing node.");
-            println!("{}", &error_message);
-            return Err(status::Custom(Status::FailedDependency, error_message));
+            return Err(status::Custom(
+                Status::FailedDependency,
+                String::from("Unable to join node."),
+            ))
         }
-        Ok(join_reponse) => join_reponse,
     };
-
-    if join_response.status_code != 200 {
-        let error_message = format!(
-            "Existing node denied join request. Node responded: [{} - {}] {}",
-            join_response.status_code,
-            join_response.reason_phrase,
-            join_response.as_str().unwrap_or("Unparseable content")
-        );
-        println!("{}", &error_message);
-        return Err(status::Custom(Status::FailedDependency, error_message));
-    }
 
     let received_network_information = match join_response.json::<JoinNetworkInformation>() {
         Err(_err) => {
@@ -917,33 +873,19 @@ fn put_network_join(
         return Err(status::Custom(Status::FailedDependency, error_message));
     }
 
-    // Get successor from holder of longest range
-    let get_successor_uri = format!(
-        "http://{}:{}/ring/successor",
-        received_network_information.longest_range.holder.hostname,
-        received_network_information.longest_range.holder.port
-    );
-
-    let get_successor_response = match minreq::get(get_successor_uri).send() {
-        Err(_err) => {
-            let error_message = String::from("Could not connect to node holding longest range.");
-            println!("{}", &error_message);
-            return Err(status::Custom(Status::FailedDependency, error_message));
-        }
+    let get_successor_response = match http_connect::get_from_node(
+        &received_network_information.longest_range.holder.hostname,
+        received_network_information.longest_range.holder.port,
+        "ring/successor",
+    ) {
         Ok(response) => response,
+        Err(_err) => {
+            return Err(status::Custom(
+                Status::FailedDependency,
+                String::from("Could not get successor from holder of longest range."),
+            ))
+        }
     };
-
-    if get_successor_response.status_code != 200 {
-        let error_message =
-            format!(
-            "Holder of longest range denied request for successor. Node responded: [{} - {}] {}",
-            get_successor_response.status_code,
-            get_successor_response.reason_phrase,
-            get_successor_response.as_str().unwrap_or("Unparseable content")
-        );
-        println!("{}", &error_message);
-        return Err(status::Custom(Status::FailedDependency, error_message));
-    }
 
     let recieved_successor = match get_successor_response.json::<Node>() {
         Err(_err) => {
@@ -974,88 +916,45 @@ fn put_network_join(
     config.successor = Some(recieved_successor.clone());
     config.precessor = Some(received_network_information.longest_range.holder.clone());
 
-    // Insert local node into ring by setting itself as successor of precessor and itself as precessor of successor
-    // Set itself as successor of precessor
-    let put_successor_uri = format!(
-        "http://{}:{}/ring/successor",
-        config
-            .precessor
-            .as_ref()
-            .expect("Precessor was just set, but does not exist")
-            .hostname,
-        config
-            .precessor
-            .as_ref()
-            .expect("Precessor was just set, but does not exist")
-            .port
-    );
-
-    let put_successor_response = match minreq::put(put_successor_uri)
-        .with_json(&config.local)
-        .expect("Could not serialize local node")
-        .send()
-    {
-        Err(_err) => {
-            let error_message = String::from("Could not connect to precessor to set successor.");
-            println!("{}", &error_message);
-            return Err(status::Custom(Status::FailedDependency, error_message));
-        }
+    let precessor = config
+        .precessor
+        .as_ref()
+        .expect("Precessor was just set, but does not exist");
+    match http_connect::write_json_to_node(
+        http_connect::WriteOperations::Put,
+        &precessor.hostname,
+        precessor.port,
+        "ring/successor",
+        &config.local,
+    ) {
         Ok(response) => response,
+        Err(_err) => {
+            return Err(status::Custom(
+                Status::FailedDependency,
+                String::from("Could not set successor of precessor"),
+            ))
+        }
     };
 
-    if put_successor_response.status_code != 200 {
-        let error_message = format!(
-            "Precessor denied setting successor. Node responded: [{} - {}] {}",
-            put_successor_response.status_code,
-            put_successor_response.reason_phrase,
-            put_successor_response
-                .as_str()
-                .unwrap_or("Unparseable content")
-        );
-        println!("{}", &error_message);
-        return Err(status::Custom(Status::FailedDependency, error_message));
-    }
-
-    // Set itself as precessor of successor
-    let put_precessor_uri = format!(
-        "http://{}:{}/ring/precessor",
-        config
-            .successor
-            .as_ref()
-            .expect("Successor was just set, but does not exist")
-            .hostname,
-        config
-            .successor
-            .as_ref()
-            .expect("Successor was just set, but does not exist")
-            .port
-    );
-
-    let put_precessor_response = match minreq::put(put_precessor_uri)
-        .with_json(&config.local)
-        .expect("Could not serialize local node")
-        .send()
-    {
-        Err(_err) => {
-            let error_message = String::from("Could not connect to precessor to set successor.");
-            println!("{}", &error_message);
-            return Err(status::Custom(Status::FailedDependency, error_message));
-        }
+    let successor = config
+        .successor
+        .as_ref()
+        .expect("Successor was just set, but does not exist");
+    match http_connect::write_json_to_node(
+        http_connect::WriteOperations::Put,
+        &successor.hostname,
+        successor.port,
+        "ring/precessor",
+        &config.local,
+    ) {
         Ok(response) => response,
+        Err(_err) => {
+            return Err(status::Custom(
+                Status::FailedDependency,
+                String::from("Could not set precessor of successor"),
+            ))
+        }
     };
-
-    if put_precessor_response.status_code != 200 {
-        let error_message = format!(
-            "Successor denied setting precessor. Node responded: [{} - {}] {}",
-            put_precessor_response.status_code,
-            put_precessor_response.reason_phrase,
-            put_precessor_response
-                .as_str()
-                .unwrap_or("Unparseable content")
-        );
-        println!("{}", &error_message);
-        return Err(status::Custom(Status::FailedDependency, error_message));
-    }
 
     return Ok(format!(
         "Joined network with ID: {}",
@@ -1115,6 +1014,7 @@ fn rocket() -> _ {
             get_storage,
             put_storage,
             get_network,
+            get_node_info,
             get_precessor,
             get_successor,
             get_local,
