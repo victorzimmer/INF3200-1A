@@ -427,7 +427,15 @@ fn put_successor(
     node_config: &State<Arc<RwLock<NodeConfig>>>,
     new_successor: Json<Node>,
 ) -> Result<(), Custom<String>> {
-    let mut config = node_config.write().expect("RWLock is poisoned");
+    let mut config = match node_config.write() {
+        Ok(config) => config,
+        Err(_err) => {
+            return Err(status::Custom(
+                Status::ServiceUnavailable,
+                String::from("Unable to acquire write lock"),
+            ));
+        }
+    };
 
     if config.is_crashed() {
         return Err(status::Custom(
@@ -436,8 +444,14 @@ fn put_successor(
         ));
     }
 
+    println!("{:?}", new_successor);
+
     config.successor = Some(new_successor.0.clone());
-    config.local.range = new_successor.0.position - config.local.position;
+    if new_successor.0.position < config.local.position {
+        config.local.range = (RING_SIZE - config.local.position) + new_successor.0.position;
+    } else {
+        config.local.range = new_successor.0.position - config.local.position;
+    }
 
     Ok(())
 }
@@ -967,6 +981,120 @@ fn put_network_join(
     ));
 }
 
+#[put("/network/leave")]
+fn put_network_leave(
+    node_config: &State<Arc<RwLock<NodeConfig>>>,
+) -> Result<String, Custom<String>> {
+    let mut config = node_config.write().expect("RWLock is poisoned");
+
+    if !config.connected {
+        let error_message =
+            String::from("Node is not in a network and therefore can't leave the network.");
+        println!("{}", &error_message);
+        return Err(status::Custom(Status::FailedDependency, error_message));
+    }
+
+    let successor = config
+        .successor
+        .as_ref()
+        .expect("Leaving network, but had no successor!");
+    let precessor = config
+        .precessor
+        .as_ref()
+        .expect("Leaving network, but had no precessor!");
+
+    // Update current state of our precessor by issuing get for its local
+    let precessor: Node =
+        match http_connect::get_from_node(&precessor.hostname, precessor.port, "ring/local") {
+            Err(_err) => {
+                return Err(status::Custom(
+                    Status::FailedDependency,
+                    String::from("Could not get current state of precessor"),
+                ))
+            }
+            Ok(response) => match response.json::<Node>() {
+                Err(_err) => {
+                    return Err(status::Custom(
+                        Status::FailedDependency,
+                        String::from("Could not parse JSON current state of precessor"),
+                    ))
+                }
+                Ok(node) => node,
+            },
+        };
+
+    // Update current state of our successor by issuing get for its local
+    let successor: Node =
+        match http_connect::get_from_node(&successor.hostname, successor.port, "ring/local") {
+            Err(_err) => {
+                return Err(status::Custom(
+                    Status::FailedDependency,
+                    String::from("Could not get current state of successor"),
+                ))
+            }
+            Ok(response) => match response.json::<Node>() {
+                Err(_err) => {
+                    return Err(status::Custom(
+                        Status::FailedDependency,
+                        String::from("Could not parse JSON current state of successor"),
+                    ))
+                }
+                Ok(node) => node,
+            },
+        };
+
+    // Put our current precessor as precessor for our current successor
+    match http_connect::write_json_to_node(
+        http_connect::WriteOperations::Put,
+        &successor.hostname,
+        successor.port,
+        "ring/precessor",
+        precessor.clone(),
+    ) {
+        Ok(_s) => _s,
+        Err(_err) => {
+            return Err(status::Custom(
+                Status::FailedDependency,
+                String::from("Could not set precessor for successor"),
+            ))
+        }
+    };
+
+    // Put our current successor as successor for our current precessor
+    match http_connect::write_json_to_node(
+        http_connect::WriteOperations::Put,
+        &precessor.hostname,
+        precessor.port,
+        "ring/successor",
+        successor,
+    ) {
+        Ok(_s) => _s,
+        Err(_err) => {
+            return Err(status::Custom(
+                Status::FailedDependency,
+                String::from("Could not set successor for precessor"),
+            ))
+        }
+    };
+
+    let network_id = config
+        .network
+        .as_ref()
+        .expect("Left network without having a network!")
+        .network_id
+        .clone();
+
+    config.connected = false;
+    config.network = None;
+    config.successor = None;
+    config.precessor = None;
+    config.finger_table.clear();
+    config.local.position = 0;
+    config.local.position = RING_SIZE;
+
+    Ok(format!("Left network {}", network_id))
+}
+
 #[launch]
 fn rocket() -> _ {
     let node_config = Arc::new(RwLock::new(NodeConfig {
@@ -1027,7 +1155,8 @@ fn rocket() -> _ {
             get_network_longest_range,
             post_network_longest_range,
             put_network_initialize,
-            put_network_join
+            put_network_join,
+            put_network_leave
         ],
     )
 }
